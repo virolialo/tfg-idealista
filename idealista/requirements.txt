@@ -1,0 +1,22 @@
+# Framework principal
+Django
+
+# Base de datos relacional (PostgreSQL)
+psycopg2-binary
+
+# Librerías para manipulación y analisis de datos
+numpy
+pandas
+matplotlib
+
+# Redes neuronales y aprendizaje automático
+torch
+torchvision
+torchaudio
+
+# Analisis de grafos
+networkx
+py2neo
+
+# Manejo de archivos R
+pyreadr
