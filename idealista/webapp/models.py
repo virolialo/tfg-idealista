@@ -1,6 +1,12 @@
 from django.db import models
 
 class Vivienda(models.Model):
+    STATUS_CHOICES = [
+        ("NEWCONSTRUCTION", "New Construction"),
+        ("2HANDRESTORE", "Second Hand - Restore"),
+        ("2HANDGOOD", "Second Hand - Good"),
+    ]
+
     id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
     precio = models.IntegerField()  # Precio de la vivienda
     precio_m2 = models.IntegerField()  # Precio por metro cuadrado
@@ -24,15 +30,18 @@ class Vivienda(models.Model):
     estudio = models.BooleanField(default=False)  # Es un estudio
     ultima_planta = models.BooleanField(default=False)  # Está en la última planta
     planta = models.IntegerField()  # Planta (0 o -1)
-    anyo_catastro = models.IntegerField()  # Año de construcción según catastro
     plantas_edicio_catastro = models.IntegerField()  # Número total de plantas del edificio
-    viviendas_edificio_catastro = models.IntegerField()  # Número de viviendas en el edificio
     calidad_catastro = models.PositiveSmallIntegerField()  # Calidad de la vivienda (0-9)
     distancia_centro = models.FloatField()  # Distancia al centro de la ciudad (km)
     distancia_metro = models.FloatField()  # Distancia a la parada de metro más cercana (km)
     distancia_blasco = models.FloatField()  # Distancia a la avenida Blasco (km)
     longitud = models.FloatField()  # Coordenada de longitud
     latitud = models.FloatField()  # Coordenada de latitud
+    status = models.CharField(
+        max_length=255,
+        choices=STATUS_CHOICES,
+        default="NEWCONSTRUCTION",
+    ) # Estado de la vivienda (nuevo, segunda mano - restaurar, segunda mano - bueno)
 
     def __str__(self):
         return f"Housing {self.id} - Price: {self.precio} ({self.metros_construidos} m2)"

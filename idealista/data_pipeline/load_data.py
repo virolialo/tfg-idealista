@@ -53,15 +53,14 @@ def cargar_viviendas_desde_csv(ruta_csv):
                     estudio=bool((fila["ISSTUDIO"])),
                     ultima_planta=bool((fila["ISINTOPFLOOR"])),
                     planta=int(fila["FLOORCLEAN"]),
-                    anyo_catastro=int(fila["CADCONSTRUCTIONYEAR"]),
                     plantas_edicio_catastro=int(fila["CADMAXBUILDINGFLOOR"]),
-                    viviendas_edificio_catastro=int(fila["CADDWELLINGCOUNT"]),
                     calidad_catastro=int(fila["CADASTRALQUALITYID"]),
                     distancia_centro=float(fila["DISTANCE_TO_CITY_CENTER"]),
                     distancia_metro=float(fila["DISTANCE_TO_METRO"]),
                     distancia_blasco=float(fila["DISTANCE_TO_BLASCO"]),
                     longitud=float(fila["LONGITUDE"]),
                     latitud=float(fila["LATITUDE"]),
+                    status=fila["STATUS"],
                 )
                 vivienda.save()
                 viviendas_creadas += 1

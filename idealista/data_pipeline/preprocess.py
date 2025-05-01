@@ -83,7 +83,8 @@ def preprocesamiento_iteracion1(ruta_archivo, ruta_salida):
     Preprocesa el archivo CSV de entrada, eliminando atributos considerados
     como innecesarios para el contexto del problema, además de eliminar filas
     donde los valores sean nulos, vacíos o incongruentes. Convierte ciertos
-    atributos a tipos específicos.
+    atributos a tipos específicos. Unifica BUILTTYPEID_1, BUILTTYPEID_2 
+    y BUILTTYPEID_3 en un único atributo STATUS.
 
     Parametros:
     ruta_archivo (str): Ruta al archivo CSV.
@@ -93,9 +94,10 @@ def preprocesamiento_iteracion1(ruta_archivo, ruta_salida):
     pd.DataFrame: DataFrame de pandas con el contenido del archivo CSV procesado.
     """
     columnas_a_eliminar = [
-        "PERIOD", "AMENITYID", "CONSTRUCTIONYEAR", 
-        "FLATLOCATIONID", "BUILTTYPEID_1", "BUILTTYPEID_2", "BUILTTYPEID_3", 
-        "ISPARKINGSPACEINCLUDEDINPRICE", "PARKINGSPACEPRICE"
+        "PERIOD", "AMENITYID", "ISPARKINGSPACEINCLUDEDINPRICE",
+        "PARKINGSPACEPRICE", "CONSTRUCTIONYEAR", "FLATLOCATIONID",
+        "CADCONSTRUCTIONYEAR", "CADDWELLINGCOUNT", "BUILTTYPEID_1", 
+        "BUILTTYPEID_2", "BUILTTYPEID_3", "geometry",
     ]
 
     columnas_a_convertir_booleano = [
@@ -106,19 +108,34 @@ def preprocesamiento_iteracion1(ruta_archivo, ruta_salida):
     ]
 
     columnas_a_convertir_entero = [
-        "PRICE", "ROOMNUMBER", "BATHNUMBER", "CONSTRUCTIONYEAR", 
-        "FLOORCLEAN", "CADMAXBUILDINGFLOOR", "CADDWELLINGCOUNT", "CADASTRALQUALITYID"
+        "PRICE", "ROOMNUMBER", "BATHNUMBER", "FLOORCLEAN",
+        "CADMAXBUILDINGFLOOR", "CADASTRALQUALITYID"
     ]
     
     try:
         # Lee el archivo CSV con pandas
         df = pd.read_csv(ruta_archivo, delimiter=',', encoding='utf-8')
         
+        # Unifica BUILTTYPE_1, BUILTTYPE_2 y BUILTTYPE_3 en STATUS
+        def determinar_status(row):
+            if row.get("BUILTTYPEID_1") == 1:
+                return "NEWCONSTRUCTION"
+            elif row.get("BUILTTYPEID_2") == 1:
+                return "2HANDRESTORE"
+            elif row.get("BUILTTYPEID_3") == 1:
+                return "2HANDGOOD"
+            return None
+
+        df["STATUS"] = df.apply(determinar_status, axis=1)
+
         # Elimina las columnas especificadas en la lista
         df = df.drop(columns=columnas_a_eliminar, errors='ignore')
         
         # Elimina filas donde "FLOORCLEAN" tiene valor NA
         df = df.dropna(subset=["FLOORCLEAN"])
+
+        # Elimina duplicados en la columna ASSETID, conservando uno de forma aleatoria
+        df = df.drop_duplicates(subset=["ASSETID"], keep="first")
         
         # Convierte las columnas especificadas de 0/1 a booleanos
         for columna in columnas_a_convertir_booleano:
