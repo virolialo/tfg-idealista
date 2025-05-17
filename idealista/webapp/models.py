@@ -1,5 +1,12 @@
 from django.db import models
 
+class Barriada(models.Model):
+    id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
+    nombre = models.CharField(max_length=255)  # Nombre de la barriada
+
+    def __str__(self):
+        return f"Barriada {self.id} - Name: {self.nombre}"
+
 class Vivienda(models.Model):
     STATUS_CHOICES = [
         ("NEWCONSTRUCTION", "New Construction"),
@@ -9,7 +16,6 @@ class Vivienda(models.Model):
 
     id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
     precio = models.IntegerField()  # Precio de la vivienda
-    precio_m2 = models.IntegerField()  # Precio por metro cuadrado
     metros_construidos = models.IntegerField()  # Metros cuadrados construidos
     num_hab = models.IntegerField()  # Número de habitaciones
     num_wc = models.IntegerField()  # Número de baños
@@ -37,11 +43,18 @@ class Vivienda(models.Model):
     distancia_blasco = models.FloatField()  # Distancia a la avenida Blasco (km)
     longitud = models.FloatField()  # Coordenada de longitud
     latitud = models.FloatField()  # Coordenada de latitud
-    status = models.CharField(
+    estado = models.CharField(
         max_length=255,
         choices=STATUS_CHOICES,
         default="NEWCONSTRUCTION",
     ) # Estado de la vivienda (nuevo, segunda mano - restaurar, segunda mano - bueno)
+    antiguedad = models.IntegerField()  # Antigüedad de la vivienda (en años)
+    barrio = models.ForeignKey(
+        Barriada,
+        to_field='id',
+        on_delete=models.PROTECT,
+        related_name='viviendas'
+    )
 
     def __str__(self):
         return f"Housing {self.id} - Price: {self.precio} ({self.metros_construidos} m2)"
