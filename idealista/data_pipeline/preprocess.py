@@ -242,6 +242,3 @@ if __name__ == "__main__":
     procesar_csv_viviendas(ruta_entrada, ruta_salida)
     procesar_barrios_csv(ruta_barrios, ruta_salida_barrios, ruta_salida_geojson)
     preprocesamiento_iteracion1(ruta_salida, ruta_salida_pandas, ruta_salida_geojson, ruta_salida_data)
-
- #   procesar_csv_viviendas(ruta_entrada, ruta_salida)
- #   preprocesamiento_iteracion1(ruta_salida, ruta_salida_pandas)
