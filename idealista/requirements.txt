@@ -10,7 +10,10 @@ neo4j
 # Librerías para manipulación y analisis de datos
 numpy
 pandas
+geopandas
+shapely
 matplotlib
+scikit-learn
 
 # Redes neuronales y aprendizaje automático
 torch
