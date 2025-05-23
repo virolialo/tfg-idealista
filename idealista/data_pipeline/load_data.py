@@ -104,7 +104,7 @@ def cargar_viviendas_desde_csv(ruta_csv):
     except FileNotFoundError:
         print(f"El archivo {ruta_csv} no fue encontrado.")
     except Exception as e:
-        print(f"Ocurrió un error al cargar los datos: {e}")
+        print(f"Ocurrio un error al cargar los datos: {e}")
 
 if __name__ == "__main__":
     ruta_barrios = BASE_DIR / "data_pipeline" / "processed_data" / "Valencia_Sale_neighbours.csv"

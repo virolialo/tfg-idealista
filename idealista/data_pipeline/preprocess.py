@@ -45,7 +45,7 @@ def procesar_csv_viviendas(ruta_entrada, ruta_salida):
         except FileNotFoundError:
             print(f"El archivo {ruta_archivo} no fue encontrado.") 
         except Exception as e:
-            print(f"Ocurrió un error al leer el archivo: {e}")
+            print(f"Ocurrio un error al leer el archivo: {e}")
         return datos
 
     def escribir_csv(ruta_salida, datos, encabezados):
@@ -69,7 +69,7 @@ def procesar_csv_viviendas(ruta_entrada, ruta_salida):
                 escritor.writerows(datos)  # Filas
             print(f"Archivo CSV creado correctamente en /processed_data")
         except Exception as e:
-            print(f"Ocurrió un error al escribir el archivo: {e}")
+            print(f"Ocurrio un error al escribir el archivo: {e}")
 
     # Ruta de salida
     Path(ruta_salida).parent.mkdir(parents=True, exist_ok=True)
@@ -127,14 +127,14 @@ def procesar_barrios_csv(ruta_csv, ruta_csv_salida, ruta_geojson_salida):
     gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
     gdf.to_file(ruta_geojson_salida, driver='GeoJSON')
 
-def preprocesamiento_iteracion1(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_salida_no_normalizado):
+def preprocesamiento(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_salida_no_normalizado):
     """
     Preprocesa el archivo CSV de entrada, eliminando atributos considerados
-    como innecesarios para el contexto del problema, además de eliminar filas
-    donde los valores sean nulos, vacíos o incongruentes. Convierte ciertos
-    atributos a tipos específicos.
+    como innecesarios para el contexto del problema, ademas de eliminar filas
+    donde los valores sean nulos, vacios o incongruentes. Convierte ciertos
+    atributos a tipos especificos.
 
-    La función también normaliza ciertos atributos y guarda el resultado en un nuevo archivo CSV.
+    La funcion tambien normaliza ciertos atributos y guarda el resultado en un nuevo archivo CSV.
 
     Parametros:
     ruta_archivo (str): Ruta al archivo CSV.
@@ -190,7 +190,7 @@ def preprocesamiento_iteracion1(ruta_viviendas, ruta_salida_viviendas, ruta_barr
             """
             La funcion determina en que barrio esta contenido
             la vivienda a partir de su latitud y longitud y el objeto
-            geometrico de los barrios. Devolverá el barrio correspondiente o 
+            geometrico de los barrios. Devolvera el barrio correspondiente o 
             'NA' si no se encuentra.
 
             Parametros:
@@ -234,12 +234,12 @@ def preprocesamiento_iteracion1(ruta_viviendas, ruta_salida_viviendas, ruta_barr
             except Exception as e:
                 print(f"No se pudo eliminar el archivo {ruta_viviendas}: {e}")
 
-        print(f"El DataFrame tiene {len(df)} filas y {len(df.columns)} columnas después del preprocesamiento.")
+        print(f"El DataFrame tiene {len(df)} filas y {len(df.columns)} columnas despues del preprocesamiento.")
         return df
     except FileNotFoundError:
         print(f"El archivo {ruta_viviendas} no fue encontrado.")
     except Exception as e:
-        print(f"Ocurrió un error al leer el archivo: {e}")
+        print(f"Ocurrio un error al leer el archivo: {e}")
         return None
 
 if __name__ == "__main__":
