@@ -19,6 +19,7 @@ scikit-learn
 torch
 torchvision
 torchaudio
+torch_geometric
 
 # Analisis de grafos
 networkx
