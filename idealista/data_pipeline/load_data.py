@@ -14,7 +14,14 @@ from webapp.models import Vivienda, Barriada
 
 def cargar_barrios_desde_csv(ruta_csv):
     """
-    Carga barrios desde un CSV con cabeceras NEIGHBOURID,NEIGHBOURNAME al modelo Barriada.
+    Cargar los datos de un archivo CSV de barrios en la base de datos
+    de Django, transformando los datos al formato del modelo creado.
+
+    Parametros:
+    ruta_csv (str): Ruta al archivo CSV que contiene los datos de los barrios.
+
+    Returns:
+    Ninguno
     """
 
     with open(ruta_csv, mode='r', encoding='utf-8') as archivo:

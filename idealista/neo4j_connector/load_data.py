@@ -11,18 +11,31 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'idealista.settings')
 django.setup()
 
 def upload_graph_to_neo4j(uri, user, password, nodes_csv, edges_csv):
-    # Leer los CSV
+    """
+    La funcion sube un grafo a Neo4j a partir de dos archivos CSV,
+    uno con los nodos y otro con las aristas.
+
+    Parametros:
+    uri (str): URI de la base de datos Neo4j.
+    user (str): Usuario de la base de datos Neo4j.
+    password (str): Contraseña de la base de datos Neo4j.
+    nodes_csv (str): Ruta al archivo CSV de nodos.
+    edges_csv (str): Ruta al archivo CSV de aristas.
+
+    Returns:
+    Ninguno
+    """
+
     nodes_df = pd.read_csv(nodes_csv)
     edges_df = pd.read_csv(edges_csv)
     
-    # Conectar a Neo4j
+    # Conexion a Neo4j
     driver = GraphDatabase.driver(uri, auth=(user, password))
     with driver.session() as session:
-        # Crear nodos
+        # Nodos
         for _, row in nodes_df.iterrows():
             props = row.to_dict()
             node_id = props.pop('NODEID')
-            # Cypher para crear nodo con propiedades
             cypher = (
                 "MERGE (n:Node {NODEID: $node_id}) "
                 "SET n += $props"
@@ -30,7 +43,7 @@ def upload_graph_to_neo4j(uri, user, password, nodes_csv, edges_csv):
             print(f"Subiendo nodo: {node_id} con propiedades: {props}")
             session.run(cypher, node_id=node_id, props=props)
         
-        # Crear aristas
+        # Aristas
         for _, row in edges_df.iterrows():
             source = row['source']
             target = row['target']
@@ -45,12 +58,7 @@ def upload_graph_to_neo4j(uri, user, password, nodes_csv, edges_csv):
     print("¡Grafo subido a Neo4j!")
 
 if __name__ == "__main__":
-    # Configura aquí tus rutas y credenciales
     uri = settings.NEO4J_URI
     user = settings.NEO4J_USER
     password = settings.NEO4J_PASSWORD
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    nodes_csv = os.path.join(BASE_DIR, "data_pipeline", "graphs", "Valencia_nodes.csv")
-    edges_csv = os.path.join(BASE_DIR, "data_pipeline", "graphs", "Valencia_similarity_edges_0990.csv")
-
-    upload_graph_to_neo4j(uri, user, password, nodes_csv, edges_csv)

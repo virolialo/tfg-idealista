@@ -1,16 +1,24 @@
 import pandas as pd
 from pathlib import Path
 import itertools
-import networkx as nx
-import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.neighbors import NearestNeighbors, BallTree
 import torch
 from torch_geometric.data import Data
-import networkx as nx
-import matplotlib.pyplot as plt
 
 def exportar_nodos(csv_path, ruta):
+    """
+    Exporta un archivo CSV de viviendas a nodos.
+
+    El archivo se guarda en graphs/Valencia_nodes.csv
+
+    Parámetros:
+    csv_path (str): Ruta al archivo CSV de entrada.
+    ruta (str): Ruta donde se guardará el archivo CSV de salida.
+
+    Returns:
+    Ninguno
+    """
     node_cols = [
         "PRICE", "CONSTRUCTEDAREA", "ROOMNUMBER", "BATHNUMBER",
         "HASTERRACE", "HASLIFT", "HASAIRCONDITIONING", "HASPARKINGSPACE",
@@ -30,16 +38,23 @@ def exportar_nodos(csv_path, ruta):
 
 def exportar_aristas_barrio(csv_path, ruta):
     """
-    Exporta un archivo CSV con las aristas:
-    - Dos viviendas están conectadas si pertenecen al mismo barrio (NEIGHBOURID)
-    El archivo se guarda en ruta/Valencia_neighbour_edges.csv
+    Crea un archivo CSV con las aristas en funcion de si
+    dos nodos pertenecen al mismo barrio o no.
+
+    El archivo se guarda en graph/Valencia_neighbour_edges.csv
+
+    Parámetros:
+    csv_path (str): Ruta al archivo CSV de entrada.
+    ruta (str): Ruta donde se guardará el archivo CSV de salida.
+
+    Returns:
+    Ninguno
     """
     df = pd.read_csv(csv_path)
     edge_rows = []
     for _, group in df.groupby("NEIGHBOURID"):
         idx = group.index.to_numpy()
         if len(idx) > 1:
-            # Solo una arista por par (i < j) para grafo no dirigido
             comb = np.array(list(itertools.combinations(idx, 2)))
             edge_rows.extend([{"source": i, "target": j} for i, j in comb])
     df_edges = pd.DataFrame(edge_rows)
@@ -49,28 +64,35 @@ def exportar_aristas_barrio(csv_path, ruta):
 
 def exportar_aristas_vecindad(csv_path, ruta, radio_km):
     """
-    Exporta un archivo CSV con las aristas:
-    - Solo por vecindad geográfica (dentro de radio_km)
-    Cada arista tiene como peso la distancia (en km) entre las viviendas.
-    El archivo se guarda en ruta/Valencia_neighbour_edges_by_distance.csv
-    Optimizado con BallTree (sklearn).
+    Se crea un archivo CSV con las aristas en funcion de si
+    dos nodos se encuentran dentro del mismo radio, considerando
+    asi que son vecinos.
+
+    El archivo se guarda en graph/Valencia_kdd_edges_<radio>.csv
+
+    Parametros:
+    csv_path (str): Ruta al archivo CSV de entrada.
+    ruta (str): Ruta donde se guardara el archivo CSV de salida.
+    radio_km (float): Radio en km para considerar dos nodos como vecinos.
+
+    Returns:
+    Ninguno
     """
     df = pd.read_csv(csv_path)
     coords = df[["LATITUDE", "LONGITUDE"]].values
     coords_rad = np.radians(coords)
     tree = BallTree(coords_rad, metric='haversine')
-    radio_rad = radio_km / 6371.0  # radio en radianes
+    radio_rad = radio_km / 6371.0
 
-    # Buscar vecinos para cada nodo y calcular distancias
+    # Busqueda de vecinos
     ind_array, dist_array = tree.query_radius(coords_rad, r=radio_rad, return_distance=True)
     edge_rows = set()
     for i, (neighbors, distances) in enumerate(zip(ind_array, dist_array)):
         for j, dist in zip(neighbors, distances):
-            if i < j:  # Solo una arista por par para grafo no dirigido
-                edge_rows.add((i, j, dist * 6371.0))  # dist está en radianes, convertir a km
+            if i < j:
+                edge_rows.add((i, j, dist * 6371.0))
                 print(f"Arista: {i} - {j} (distancia: {dist * 6371.0:.4f} km)")
 
-    # Exportar a CSV
     df_edges = pd.DataFrame(list(edge_rows), columns=["source", "target", "DISTANCE"])
     radio_str = f"{radio_km:.3f}".replace('.', '')
     edges_out = Path(ruta) / f"Valencia_kdd_edges_{radio_str}.csv"
@@ -79,10 +101,21 @@ def exportar_aristas_vecindad(csv_path, ruta, radio_km):
 
 def exportar_aristas_similitud_caracteristicas(csv_path, ruta, threshold):
     """
-    Exporta un archivo CSV con las aristas:
-    - Dos viviendas están conectadas si su similitud (1 - distancia euclídea media)
-      sobre los atributos seleccionados es mayor o igual al umbral (threshold).
-    El archivo se guarda en ruta/Valencia_similarity_edges.csv
+    La funcion crea un archivo CSV con las aristas en funcion de la
+    similitud de las caracteristicas de los nodos. Esto se establece
+    mediante la distancia euclidea entre los nodos, y se considera
+    que dos nodos son similares si la distancia es menor que un
+    umbral determinado. 
+
+    El archivo se guarda en graph/Valencia_similarity_edges_<umbral>.csv
+
+    Parametros:
+    csv_path (str): Ruta al archivo CSV de entrada.
+    ruta (str): Ruta donde se guardará el archivo CSV de salida.
+    threshold (float): Umbral de similitud (0 < umbral < 1).
+
+    Returns:
+    Ninguno
     """
     df = pd.read_csv(csv_path)
     atributos = [
@@ -92,7 +125,7 @@ def exportar_aristas_similitud_caracteristicas(csv_path, ruta, threshold):
         "HASSWIMMINGPOOL", "HASDOORMAN", "HASGARDEN", "ISDUPLEX", "ISSTUDIO",
         "ISINTOPFLOOR", "FLOORCLEAN"
     ]
-    X = df[atributos].values  # Ya normalizados
+    X = df[atributos].values
     n_features = len(atributos)
     dist_threshold = 1 - threshold
     dist_threshold = dist_threshold * np.sqrt(n_features)
@@ -104,7 +137,7 @@ def exportar_aristas_similitud_caracteristicas(csv_path, ruta, threshold):
     edge_rows = set()
     for i, neighbors in enumerate(ind_array):
         for j in neighbors:
-            if i < j:  # Solo una arista por par para grafo no dirigido
+            if i < j:
                 dist = np.linalg.norm(X[i] - X[j]) / np.sqrt(n_features)
                 similarity = 1 - dist
                 edge_rows.add((i, j, similarity))
@@ -116,19 +149,27 @@ def exportar_aristas_similitud_caracteristicas(csv_path, ruta, threshold):
     df_edges.to_csv(edges_out, index=False, encoding='utf-8')
     print(f"Aristas por similitud exportadas a {edges_out}")
 
-def cargar_grafo(nodes_csv, edges_csv,max_nodos=100, max_aristas=200):
-    # Leer nodos y aristas
-    nodes_df = pd.read_csv(nodes_csv)
-    edges_df = pd.read_csv(edges_csv)
+def cargar_grafo(nodes_csv, edges_csv):
+    """
+    Crea un grafo con PyTorch Geometric a partir de los archivos CSV de nodos y aristas.
 
-    # Extraer características de los nodos (excluyendo NODEID)
+    Parametros:
+    nodes_csv (str): Ruta al archivo CSV de nodos.
+    edges_csv (str): Ruta al archivo CSV de aristas.
+
+    Returns:
+    data (torch_geometric.data.Data): Objeto Data que representa el grafo.
+    """
+    nodes_df = pd.read_csv(nodes_csv) # Nodos
+    edges_df = pd.read_csv(edges_csv) # Aristas
+
+    # Carateristicas de los nodos (no incluir NODEID por ser el identificador)
     node_features = nodes_df.drop(columns=["NODEID"]).values
     x = torch.tensor(node_features, dtype=torch.float)
 
-    # Construir edge_index
     edge_index = torch.tensor(edges_df[["source", "target"]].values.T, dtype=torch.long)
 
-    # Si hay una tercera columna, usarla como edge_attr (peso)
+    # Si existe peso en el CSV de aristas
     edge_attr = None
     if edges_df.shape[1] > 2:
         weight_col = edges_df.columns[2]
@@ -143,10 +184,4 @@ if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
     csv_in = BASE_DIR / "processed_data" / "Valencia_Sale_graph.csv"
     ruta = BASE_DIR / "graphs"
-#    exportar_nodos(csv_in, ruta)
-    nodos = BASE_DIR / "graphs" / "Valencia_nodes.csv"
-    aristas_1 = BASE_DIR / "graphs" / "Valencia_kdd_edges_0050.csv"
-#    exportar_aristas_barrio(nodos, ruta)
-#    exportar_aristas_vecindad(nodos, ruta, 0.3)
-#    exportar_aristas_similitud_caracteristicas(nodos, ruta, 0.99)
-    cargar_grafo(nodos, aristas_1, max_nodos=2000, max_aristas=20000)
+
