@@ -7,17 +7,16 @@ import json
 from sklearn.preprocessing import MinMaxScaler
 import os
 
-def procesar_csv_viviendas(ruta_entrada, ruta_salida):
+def procesar_csv_viviendas(csv_entrada):
     """
     Unifica la funcion de lectura y reescritura del archivo CSV en sucio.
 
     La funcion procesa un archivo CSV de entrada, seleccionando todas las columnas
     a excepcion de "geometry", la cual da problemas al leer el archivo con pandas.
-    Luego, escribe el contenido en un nuevo archivo CSV de salida.
+    Luego, escribe el contenido en un nuevo archivo CSV de salida en la carpeta /processed_data.
 
     Parametros:
-    ruta_entrada (str): Ruta al archivo CSV de entrada.
-    ruta_salida (str): Ruta al archivo CSV de salida.
+    csv_entrada (str): Ruta al archivo CSV de entrada.
 
     Returns:
     Ninguno
@@ -48,54 +47,73 @@ def procesar_csv_viviendas(ruta_entrada, ruta_salida):
             print(f"Ocurrio un error al leer el archivo: {e}")
         return datos
 
-    def escribir_csv(ruta_salida, datos, encabezados):
+    def escribir_csv(datos, encabezados, csv_entrada):
         """
         Funcion interna para escribir un archivo CSV a partir de una lista de diccionarios.
         Convierte la lista de diccionarios en un archivo CSV, donde cada diccionario representa una fila.
-        Devolverá un mensaje de exito o error al escribir el archivo.
+        El nombre de salida será el del archivo de entrada + '_processed.csv', siempre en /processed_data.
 
         Parametros:
-        ruta_salida (str): Ruta al archivo CSV de salida, donde se guardara el archivo.
         datos (list): Lista de diccionarios con los datos a escribir.
         encabezados (list): Lista de encabezados para el archivo CSV.
+        csv_entrada (str): Ruta al archivo CSV de entrada.
 
         Returns:
         Ninguno
         """
         try:
-            with open(ruta_salida, mode='w', encoding='utf-8', newline='') as archivo:
+            base_dir = Path(__file__).resolve().parent
+            directorio = base_dir / "processed_data"
+            directorio.mkdir(parents=True, exist_ok=True)
+            nombre_base = Path(csv_entrada).stem + "_processed.csv"
+            ruta_salida_final = directorio / nombre_base
+
+            with open(ruta_salida_final, mode='w', encoding='utf-8', newline='') as archivo:
                 escritor = csv.DictWriter(archivo, fieldnames=encabezados)
                 escritor.writeheader()  # Encabezados
                 escritor.writerows(datos)  # Filas
-            print(f"Archivo CSV creado correctamente en /processed_data")
+            print(f"Archivo CSV creado correctamente en {ruta_salida_final}")
         except Exception as e:
             print(f"Ocurrio un error al escribir el archivo: {e}")
 
     # Ruta de salida
-    Path(ruta_salida).parent.mkdir(parents=True, exist_ok=True)
+    base_dir = Path(__file__).resolve().parent
+    directorio = base_dir / "processed_data"
+    directorio.mkdir(parents=True, exist_ok=True)
+    nombre_salida = Path(csv_entrada).name
+    ruta_salida = directorio / nombre_salida
 
-    contenido = leer_csv(ruta_entrada)
+    contenido = leer_csv(csv_entrada)
 
     if contenido:
         encabezados = list(contenido[0].keys())
-        escribir_csv(ruta_salida, contenido, encabezados)
+        escribir_csv(contenido, encabezados, csv_entrada)
 
-def procesar_barrios_csv(ruta_csv, ruta_csv_salida, ruta_geojson_salida):
+def procesar_csv_barrios(ruta_csv):
     """
     Lee un CSV de barrios y realiza el preprocesamiento necesario para convertirlo
     en un GeoDataFrame. Elimina columnas innecesarias, renombra columnas y convierte
     la geometría de GeoJSON a objetos shapely.
 
-    Guarda el resultado en un nuevo CSV y un archivo GeoJSON.
+    Guarda dos archivos de salida:
+    - Un CSV con los barrios procesados para almacenar en la base de datos de Django.
+    - Un GeoJSON con la geometría de los barrios.
 
     Parametros:
     ruta_csv (str): Ruta al archivo CSV de barrios.
-    ruta_csv_salida (str): Ruta al archivo CSV de salida.
-    ruta_geojson_salida (str): Ruta al archivo GeoJSON de salida.
 
     Returns:
     Ninguno
     """
+    base_dir = Path(__file__).resolve().parent
+    directorio = base_dir / "processed_data"
+    directorio.mkdir(parents=True, exist_ok=True)
+
+    # Nombres de salida
+    nombre_base = Path(ruta_csv).stem + "_processed"
+    ruta_csv_salida = directorio / "barris-barrios_data.csv"
+    ruta_geojson_salida = directorio / f"{nombre_base}.geojson"
+
     df = pd.read_csv(ruta_csv, sep=';', dtype=str)
 
     # Columnas que no se necesitan
@@ -126,8 +144,9 @@ def procesar_barrios_csv(ruta_csv, ruta_csv_salida, ruta_geojson_salida):
     # Se crea el GeoJSON
     gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
     gdf.to_file(ruta_geojson_salida, driver='GeoJSON')
+    print(f"Archivos guardados en {ruta_csv_salida} y {ruta_geojson_salida}")
 
-def preprocesamiento(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_salida_no_normalizado):
+def preprocesamiento(ruta_viviendas, ruta_barrios):
     """
     Preprocesa el archivo CSV de entrada, eliminando atributos considerados
     como innecesarios para el contexto del problema, ademas de eliminar filas
@@ -136,10 +155,14 @@ def preprocesamiento(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_s
 
     La funcion tambien normaliza ciertos atributos y guarda el resultado en un nuevo archivo CSV.
 
+    Se generan dos archivos de salida:
+    - Un CSV con los datos de viviendas preprocesados.
+    - Un CSV con los datos de viviendas para almacenar en la base de datos de Django.
+
     Parametros:
-    ruta_archivo (str): Ruta al archivo CSV.
-    ruta_salida (str): Ruta al archivo CSV de salida.
-    
+    ruta_viviendas (str): Ruta al archivo CSV de viviendas.
+    ruta_barrios (str): Ruta al archivo CSV de barrios.
+
     Returns:
     pd.DataFrame: DataFrame de pandas con el contenido del archivo CSV procesado.
     """
@@ -211,12 +234,17 @@ def preprocesamiento(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_s
                 return pd.Series(['NA'])
 
         df[['NEIGHBOURID']] = df.apply(buscar_barrio, axis=1)
-
         df = df[(df['NEIGHBOURID'] != 'NA')].reset_index(drop=True)
 
+        # Directorio de salida fijo y nombres de archivo requeridos
+        base_dir = Path(__file__).resolve().parent
+        processed_dir = base_dir / "processed_data"
+        processed_dir.mkdir(parents=True, exist_ok=True)
+        ruta_salida_viviendas = processed_dir / "Valencia_Sale_graph.csv"
+        ruta_salida_no_normalizado = processed_dir / "Valencia_Sale_data.csv"
+
         # Guarda el DataFrame antes de normalizar
-        if ruta_salida_no_normalizado:
-            df.to_csv(ruta_salida_no_normalizado, index=False, encoding='utf-8')
+        df.to_csv(ruta_salida_no_normalizado, index=False, encoding='utf-8')
 
         # Normalizacion
         scaler = MinMaxScaler()
@@ -244,5 +272,10 @@ def preprocesamiento(ruta_viviendas, ruta_salida_viviendas, ruta_barrios, ruta_s
 
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
-    ruta_entrada = BASE_DIR / "raw_data" / "Valencia_Sale.csv"
-    ruta_salida = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
+    csv_entrada = BASE_DIR / "raw_data" / "Valencia_Sale.csv"
+    csv_barrios = BASE_DIR / "raw_data" / "barris-barrios.csv"
+    procesar_csv_viviendas(csv_entrada)
+    procesar_csv_barrios(csv_barrios)
+    ruta_viviendas = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
+    ruta_barrios = BASE_DIR / "processed_data" / "barris-barrios_processed.geojson"
+    preprocesamiento(ruta_viviendas, ruta_barrios)
