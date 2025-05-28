@@ -23,7 +23,6 @@ def cargar_barrios_desde_csv(ruta_csv):
     Returns:
     Ninguno
     """
-
     with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
         lector = csv.DictReader(archivo)
         barrios = 0
@@ -54,8 +53,7 @@ def cargar_viviendas_desde_csv(ruta_csv):
             viviendas_creadas = 0
 
             for fila in lector:
-
-                # Determinar el estado de la vivienda
+                # Determina atributo 'estado'
                 if fila.get("BUILDTYPE_1") == "1":
                     status_value = "NEWCONSTRUCTION"
                 elif fila.get("BUILDTYPE_2") == "1":
@@ -63,6 +61,7 @@ def cargar_viviendas_desde_csv(ruta_csv):
                 else:
                     status_value = "2HANDGOOD"
 
+                # Crea una instancia de Vivienda para cada fila del CSV
                 vivienda = Vivienda(
                     id=fila["ASSETID"],
                     precio=int(fila["PRICE"]),
@@ -97,9 +96,9 @@ def cargar_viviendas_desde_csv(ruta_csv):
                     antiguedad=int(fila["ANTIQUITY"]),
                     barrio=Barriada.objects.get(id=fila["NEIGHBOURID"]),
                 )
+                # Guarda la instancia de Vivienda en la base de datos
                 vivienda.save()
                 viviendas_creadas += 1
-
             print(f"Se han cargado {viviendas_creadas} viviendas en la base de datos.")
     except FileNotFoundError:
         print(f"El archivo {ruta_csv} no fue encontrado.")
@@ -107,7 +106,7 @@ def cargar_viviendas_desde_csv(ruta_csv):
         print(f"Ocurrio un error al cargar los datos: {e}")
 
 if __name__ == "__main__":
-    ruta_barrios = BASE_DIR / "data_pipeline" / "processed_data" / "Valencia_Sale_neighbours.csv"
-    ruta_viviendas = BASE_DIR / "data_pipeline" / "processed_data" / "Valencia_Sale_data.csv"
-    cargar_barrios_desde_csv(ruta_barrios)
-    cargar_viviendas_desde_csv(ruta_viviendas)
+    datos_barrios = BASE_DIR / "data_pipeline" / "processed_data" / "barris-barrios_data.csv"
+    datos_viviendas = BASE_DIR / "data_pipeline" / "processed_data" / "Valencia_Sale_data.csv"
+    cargar_barrios_desde_csv(datos_barrios)
+    cargar_viviendas_desde_csv(datos_viviendas)
