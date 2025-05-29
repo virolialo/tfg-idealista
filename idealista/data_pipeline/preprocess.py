@@ -51,7 +51,7 @@ def procesar_csv_viviendas(csv_entrada):
         """
         Funcion interna para escribir un archivo CSV a partir de una lista de diccionarios.
         Convierte la lista de diccionarios en un archivo CSV, donde cada diccionario representa una fila.
-        El nombre de salida será el del archivo de entrada + '_processed.csv', siempre en /processed_data.
+        El nombre de salida sera el del archivo de entrada + '_processed.csv', siempre en /processed_data.
 
         Parametros:
         datos (list): Lista de diccionarios con los datos a escribir.
@@ -93,11 +93,11 @@ def procesar_csv_barrios(ruta_csv):
     """
     Lee un CSV de barrios y realiza el preprocesamiento necesario para convertirlo
     en un GeoDataFrame. Elimina columnas innecesarias, renombra columnas y convierte
-    la geometría de GeoJSON a objetos shapely.
+    la geometria de GeoJSON a objetos shapely.
 
     Guarda dos archivos de salida:
     - Un CSV con los barrios procesados para almacenar en la base de datos de Django.
-    - Un GeoJSON con la geometría de los barrios.
+    - Un GeoJSON con la geometria de los barrios.
 
     Parametros:
     ruta_csv (str): Ruta al archivo CSV de barrios.
@@ -126,7 +126,7 @@ def procesar_csv_barrios(ruta_csv):
         'geo_shape': 'geometry'
     })
 
-    # Identificadores únicos para cada barrio
+    # Identificadores unicos para cada barrio
     df['NEIGHBOURID'] = range(1, len(df) + 1)
 
     df[['NEIGHBOURID', 'NEIGHBOURNAME']].to_csv(ruta_csv_salida, index=False, encoding='utf-8')
@@ -205,7 +205,7 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
         # Elimina columnas innecesarias
         df = df.drop(columns=columnas_a_eliminar, errors='ignore')
 
-        # Modificación de CADASTRALQUALITYID:
+        # Modificacion de CADASTRALQUALITYID:
         if "CADASTRALQUALITYID" in df.columns:
             df["CADASTRALQUALITYID"] = df["CADASTRALQUALITYID"].apply(lambda x: 9 - x if pd.notnull(x) else x)
 
@@ -272,10 +272,3 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
 
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
-    csv_entrada = BASE_DIR / "raw_data" / "Valencia_Sale.csv"
-    csv_barrios = BASE_DIR / "raw_data" / "barris-barrios.csv"
-    procesar_csv_viviendas(csv_entrada)
-    procesar_csv_barrios(csv_barrios)
-    ruta_viviendas = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
-    ruta_barrios = BASE_DIR / "processed_data" / "barris-barrios_processed.geojson"
-    preprocesamiento(ruta_viviendas, ruta_barrios)
