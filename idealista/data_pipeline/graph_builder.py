@@ -52,11 +52,11 @@ def exportar_nodos(csv_entrada):
         print(f"Nodos del barrio {barrio} exportados a {nodes_out}")
 
     # Archivo CSV completo
-    df_all = df[node_cols].copy()
-    df_all.insert(0, "NODEID", df_all.index)
-    nodes_all_out = nodes_dir / "Valencia_nodes_all.csv"
-    df_all.to_csv(nodes_all_out, index=False, encoding='utf-8')
-    print(f"Todos los nodos exportados a {nodes_all_out}")
+#    df_all = df[node_cols].copy()
+#    df_all.insert(0, "NODEID", df_all.index)
+#    nodes_all_out = nodes_dir / "Valencia_nodes_all.csv"
+#    df_all.to_csv(nodes_all_out, index=False, encoding='utf-8')
+#    print(f"Todos los nodos exportados a {nodes_all_out}")
 
 def exportar_aristas_barrio(nodos):
     """
@@ -93,7 +93,7 @@ def exportar_aristas_barrio(nodos):
 
     # Formato de ficheros de salida
     if len(barrios) == 1:
-        edges_out = edges_dir / f"Valencia_neighbour_{barrios[0]}_edges.csv"
+        edges_out = edges_dir / f"Valencia_neighbour_edges_{barrios[0]}.csv"
     else:
         edges_out = edges_dir / "Valencia_neighbour_edges_all.csv"
     df_edges.to_csv(edges_out, index=False, encoding='utf-8')
