@@ -4,7 +4,7 @@ import itertools
 import numpy as np
 from sklearn.neighbors import NearestNeighbors, BallTree
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data, HeteroData
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -52,11 +52,11 @@ def exportar_nodos(csv_entrada):
         print(f"Nodos del barrio {barrio} exportados a {nodes_out}")
 
     # Archivo CSV completo
-    df_all = df[node_cols].copy()
-    df_all.insert(0, "NODEID", df_all.index)
-    nodes_all_out = nodes_dir / "Valencia_nodes_all.csv"
-    df_all.to_csv(nodes_all_out, index=False, encoding='utf-8')
-    print(f"Todos los nodos exportados a {nodes_all_out}")
+    # df_all = df[node_cols].copy()
+    # df_all.insert(0, "NODEID", df_all.index)
+    # nodes_all_out = nodes_dir / "Valencia_nodes_all.csv"
+    # df_all.to_csv(nodes_all_out, index=False, encoding='utf-8')
+    # print(f"Todos los nodos exportados a {nodes_all_out}")
 
 def exportar_aristas_barrio(nodos):
     """
@@ -247,100 +247,133 @@ def exportar_aristas_similitud_caracteristicas(nodos, threshold):
     df_edges.to_csv(edges_out, index=False, encoding='utf-8')
     print(f"Aristas por similitud exportadas a {edges_out}")
 
-def cargar_grafo(nodos, aristas):
+def cargar_grafo(nodos, aristas, aristas_extra=None):
     """
-    La funcion carga un grafo a partir de dos archivos CSV:
-    - Un archivo CSV con los nodos, que contiene las caracteristicas de cada vivienda.
-    - Un archivo CSV con las aristas, que contiene las conexiones entre viviendas.
+    Carga un grafo a partir de un archivo de nodos y uno o dos archivos de aristas.
+    Si aristas_extra es None, devuelve un Data homogéneo.
+    Si aristas_extra no es None, devuelve un HeteroData con dos tipos de aristas.
+    El nombre del tipo de arista será 'vivienda_{caracteristica}', donde 'caracteristica' es la cabecera de la columna de peso si existe, o 'simple' si no hay peso.
 
     Parametros:
     nodos (str): Ruta al archivo CSV de nodos.
-    aristas (str): Ruta al archivo CSV de aristas.
+    aristas (str): Ruta al archivo CSV de aristas principal.
+    aristas_extra (str, opcional): Ruta al archivo CSV de aristas secundario.
 
     Returns:
-    data (torch_geometric.data.Data): Objeto Data de PyTorch Geometric que representa el grafo.
+    data (torch_geometric.data.Data o HeteroData): Grafo homogéneo o heterogéneo.
     """
     # Lectura de los CSV
     nodes_df = pd.read_csv(nodos)
     edges_df = pd.read_csv(aristas)
 
     # Indicar nodos y caracteristicas
-    node_features = nodes_df.drop(columns=["NODEID"]).values # Es identificador, no caracteristica
+    node_features = nodes_df.drop(columns=["NODEID"]).values
     x = torch.tensor(node_features, dtype=torch.float)
 
-    # Indicar aristas del grafo
-    edge_index = torch.tensor(edges_df[["source", "target"]].values.T, dtype=torch.long)
-
-    # Peso de las aristas (si existe)
-    edge_attr = None
+    # Primer tipo de aristas
+    edge_index1 = torch.tensor(edges_df[["source", "target"]].values.T, dtype=torch.long)
     if edges_df.shape[1] > 2:
-        weight_col = edges_df.columns[2]
-        edge_attr = torch.tensor(edges_df[weight_col].values, dtype=torch.float).unsqueeze(1)
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        weight_col1 = edges_df.columns[2]
+        edge_attr1 = torch.tensor(edges_df[weight_col1].values, dtype=torch.float).unsqueeze(1)
+        nombre_arista1 = f"{weight_col1.lower()}"
     else:
-        data = Data(x=x, edge_index=edge_index)
+        edge_attr1 = None
+        nombre_arista1 = "vivienda_simple"
+
+    if aristas_extra is None:
+        if edge_attr1 is not None:
+            data = Data(x=x, edge_index=edge_index1, edge_attr=edge_attr1)
+        else:
+            data = Data(x=x, edge_index=edge_index1)
+        return data
+
+    # Segundo tipo de aristas
+    edges_df2 = pd.read_csv(aristas_extra)
+    edge_index2 = torch.tensor(edges_df2[["source", "target"]].values.T, dtype=torch.long)
+    if edges_df2.shape[1] > 2:
+        weight_col2 = edges_df2.columns[2]
+        edge_attr2 = torch.tensor(edges_df2[weight_col2].values, dtype=torch.float).unsqueeze(1)
+        nombre_arista2 = f"{weight_col2.lower()}"
+    else:
+        edge_attr2 = None
+        nombre_arista2 = "vivienda_simple"
+
+    data = HeteroData()
+    data['house'].x = x
+    data['house', nombre_arista1, 'house'].edge_index = edge_index1
+    if edge_attr1 is not None:
+        data['house', nombre_arista1, 'house'].edge_attr = edge_attr1
+    data['house', nombre_arista2, 'house'].edge_index = edge_index2
+    if edge_attr2 is not None:
+        data['house', nombre_arista2, 'house'].edge_attr = edge_attr2
 
     return data
 
 def mostrar_grafo(data):
     """
-    La funcion muestra un grafo utilizando NetworkX y Matplotlib a partir de un objeto Data de PyTorch Geometric.
-    El grafo se dibuja con nodos y aristas, y si las aristas tienen peso, se muestran los pesos en rojo.
-
-    Parametros:
-    data (torch_geometric.data.Data): Objeto Data de PyTorch Geometric que representa el grafo.
-
-    Returns:
-    Ninguno
+    Muestra un grafo (Data o HeteroData) usando NetworkX y Matplotlib.
+    Si es HeteroData, muestra cada tipo de arista en un color diferente.
     """
-    # Comprobar que el grafo tiene aristas
-    if hasattr(data, 'edge_index'):
+
+    if isinstance(data, Data):
+        # Grafo homogeneo
         edge_index = data.edge_index.cpu().numpy()
+        G = nx.Graph()
+        G.add_nodes_from(range(data.x.shape[0]))
+        edges = list(zip(edge_index[0], edge_index[1]))
+        if hasattr(data, 'edge_attr') and data.edge_attr is not None:
+            weights = data.edge_attr.cpu().numpy().flatten()
+            for (u, v), w in zip(edges, weights):
+                G.add_edge(u, v, weight=w)
+        else:
+            G.add_edges_from(edges)
+        plt.figure(figsize=(8, 8))
+        pos = nx.spring_layout(G, seed=42)
+        nx.draw(G, pos, with_labels=True, node_color='skyblue', edge_color='gray', node_size=300, font_size=8)
+        if nx.get_edge_attributes(G, 'weight'):
+            edge_labels = nx.get_edge_attributes(G, 'weight')
+            edge_labels = {k: f"{v:.2f}" for k, v in edge_labels.items()}
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red', font_size=8)
+        plt.show()
+    elif isinstance(data, HeteroData):
+        # Grafo heterogeneo 
+        G = nx.Graph()
+        num_nodes = data['house'].x.shape[0]
+        G.add_nodes_from(range(num_nodes))
+        colors = ['gray', 'orange', 'green', 'blue', 'red', 'purple']
+        edge_types = list(data.edge_types)
+        for idx, edge_type in enumerate(edge_types):
+            edge_index = data[edge_type].edge_index.cpu().numpy()
+            edges = list(zip(edge_index[0], edge_index[1]))
+            color = colors[idx % len(colors)]
+            if hasattr(data[edge_type], 'edge_attr') and data[edge_type].edge_attr is not None:
+                weights = data[edge_type].edge_attr.cpu().numpy().flatten()
+                for (u, v), w in zip(edges, weights):
+                    G.add_edge(u, v, weight=w, color=color)
+            else:
+                for (u, v) in edges:
+                    G.add_edge(u, v, color=color)
+        plt.figure(figsize=(8, 8))
+        pos = nx.spring_layout(G, seed=42)
+
+        # Diferencia los tipos de aristas por color
+        for idx, edge_type in enumerate(edge_types):
+            color = colors[idx % len(colors)]
+            edges = [(u, v) for (u, v, d) in G.edges(data=True) if d.get('color') == color]
+            nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color=color, label=str(edge_type))
+        nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=300)
+        nx.draw_networkx_labels(G, pos, font_size=8)
+
+        # Dibuja pesos si existen
+        edge_labels = {(u, v): f"{d['weight']:.2f}" for u, v, d in G.edges(data=True) if 'weight' in d}
+        if edge_labels:
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red', font_size=8)
+        plt.legend()
+        plt.show()
     else:
-        raise ValueError("El objeto data no tiene atributo edge_index.")
-
-    # Creacion del grafo de NetworkX
-    G = nx.Graph()
-    G.add_nodes_from(range(data.x.shape[0])) # Nodos
-    edges = list(zip(edge_index[0], edge_index[1])) # Aristas
-    if hasattr(data, 'edge_attr') and data.edge_attr is not None:
-        weights = data.edge_attr.cpu().numpy().flatten()
-        for (u, v), w in zip(edges, weights):
-            G.add_edge(u, v, weight=w)
-    else:
-        G.add_edges_from(edges)
-
-    # Representacion del grafo
-    plt.figure(figsize=(8, 8))
-    pos = nx.spring_layout(G, seed=42)
-    nx.draw(G, pos, with_labels=True, node_color='skyblue', edge_color='gray', node_size=300, font_size=8)
-
-    # Pesos de las aristas
-    if nx.get_edge_attributes(G, 'weight'):
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        edge_labels = {k: f"{v:.2f}" for k, v in edge_labels.items()} # Redondeo a 2 decimales
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red', font_size=8)
-
-    plt.show()
+        raise ValueError("El objeto data debe ser de tipo Data o HeteroData.")
      
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
     csv_in = BASE_DIR / "processed_data" / "Valencia_Sale_graph.csv"
     exportar_nodos(csv_in)
-
-    # Ejecutar exportar_aristas_barrio para todos los CSV en graphs/nodes
-    nodes_dir = BASE_DIR / "graphs" / "nodes"
-    for csv_file in nodes_dir.glob("*.csv"):
-        print(f"Procesando aristas para {csv_file.name}")
-        exportar_aristas_barrio(csv_file)
-        exportar_aristas_vecindad(csv_file, 0.05)
-        exportar_aristas_vecindad(csv_file, 0.1)
-        exportar_aristas_vecindad(csv_file, 0.15)
-        exportar_aristas_vecindad(csv_file, 0.20)
-        exportar_aristas_vecindad(csv_file, 0.25)
-        exportar_aristas_vecindad(csv_file, 0.30)
-        exportar_aristas_similitud_caracteristicas(csv_file, 0.99)
-        exportar_aristas_similitud_caracteristicas(csv_file, 0.95)
-        exportar_aristas_similitud_caracteristicas(csv_file, 0.90)
-        exportar_aristas_similitud_caracteristicas(csv_file, 0.85)
-        exportar_aristas_similitud_caracteristicas(csv_file, 0.80)
