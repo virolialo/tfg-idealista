@@ -4,13 +4,14 @@ import sys
 import os
 import django
 
+
 # Configuracion del entorno Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'idealista.settings')
 django.setup()
 
-from webapp.models import Vivienda, Barriada
+from webapp.models import Barriada, Hiperparametros, Vivienda
 
 def cargar_barrios_desde_csv(ruta_csv):
     """
@@ -35,6 +36,34 @@ def cargar_barrios_desde_csv(ruta_csv):
             barrios += 1
 
         print(f"Se han creado {barrios} barrios nuevos.")
+
+def cargar_hiperparametros_desde_csv(ruta_csv):
+    """
+    Carga hiperparámetros desde un archivo CSV y los guarda en la base de datos,
+    asociándolos a la barriada correspondiente por su id.
+
+    El CSV debe tener cabecera: ID,hidden_channels,dropout,lr,epochs
+    """
+    with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
+        lector = csv.DictReader(archivo)
+        for fila in lector:
+            barriada_id = fila["ID"]
+            try:
+                barriada = Barriada.objects.get(id=barriada_id)
+                hiperparametros, creado = Hiperparametros.objects.update_or_create(
+                    barriada=barriada,
+                    defaults={
+                        "hidden_channels": int(fila["hidden_channels"]),
+                        "dropout": float(fila["dropout"]),
+                        "lr": float(fila["lr"]),
+                        "epochs": int(fila["epochs"]),
+                    }
+                )
+                print(f"Hiperparámetros cargados para barriada {barriada_id}")
+            except Barriada.DoesNotExist:
+                print(f"Barriada con id {barriada_id} no existe. Saltando.")
+            except Exception as e:
+                print(f"Error al cargar hiperparámetros para barriada {barriada_id}: {e}")
 
 def cargar_viviendas_desde_csv(ruta_csv):
     """
@@ -106,7 +135,10 @@ def cargar_viviendas_desde_csv(ruta_csv):
         print(f"Ocurrio un error al cargar los datos: {e}")
 
 if __name__ == "__main__":
-    datos_barrios = BASE_DIR / "data_pipeline" / "processed_data" / "barris-barrios_data.csv"
-    datos_viviendas = BASE_DIR / "data_pipeline" / "processed_data" / "Valencia_Sale_data.csv"
-    cargar_barrios_desde_csv(datos_barrios)
-    cargar_viviendas_desde_csv(datos_viviendas)
+    datos_barrios = BASE_DIR / "data" / "db" / "barris-barrios_data.csv"
+    datos_viviendas = BASE_DIR / "data" /  "db" / "Valencia_Sale_data.csv"
+    datos_hiperparametros = BASE_DIR / "data" / "db" / "model_gcn_parameters.csv"
+    # cargar_barrios_desde_csv(datos_barrios)
+    # cargar_viviendas_desde_csv(datos_viviendas)
+    cargar_hiperparametros_desde_csv(datos_hiperparametros)
+    print("Carga de datos completada.")
