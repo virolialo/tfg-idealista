@@ -242,6 +242,8 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
         processed_dir.mkdir(parents=True, exist_ok=True)
         ruta_salida_viviendas = processed_dir / "Valencia_Sale_graph.csv"
         ruta_salida_no_normalizado = processed_dir / "Valencia_Sale_data.csv"
+        ruta_salida_barrios_csv = processed_dir / "barris-barrios_data.csv"
+        ruta_salida_barrios_geojson = processed_dir / "barris-barrios_processed.geojson"
 
         # Guarda el DataFrame antes de normalizar
         df.to_csv(ruta_salida_no_normalizado, index=False, encoding='utf-8')
@@ -253,6 +255,19 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
                 df[[col]] = scaler.fit_transform(df[[col]])
 
         df.to_csv(ruta_salida_viviendas, index=False, encoding='utf-8')
+
+        # Eliminacion de barrios sin viviendas asociadas
+        if ruta_salida_barrios_csv.exists():
+            barrios_df = pd.read_csv(ruta_salida_barrios_csv, encoding='utf-8')
+            barrios_con_viviendas = df['NEIGHBOURID'].unique()
+            barrios_df_filtrado = barrios_df[barrios_df['NEIGHBOURID'].astype(str).isin(barrios_con_viviendas.astype(str))]
+            barrios_df_filtrado.to_csv(ruta_salida_barrios_csv, index=False, encoding='utf-8')
+
+        if ruta_salida_barrios_geojson.exists():
+            gdf_geo = gpd.read_file(ruta_salida_barrios_geojson)
+            barrios_con_viviendas = df['NEIGHBOURID'].unique()
+            gdf_geo_filtrado = gdf_geo[gdf_geo['NEIGHBOURID'].astype(str).isin(barrios_con_viviendas.astype(str))]
+            gdf_geo_filtrado.to_file(ruta_salida_barrios_geojson, driver='GeoJSON')
 
         # Elimina el archivo de entrada tras procesar
         if os.path.exists(ruta_viviendas):
@@ -272,3 +287,11 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
 
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
+    ruta_viviendas = BASE_DIR / "raw_data" / "Valencia_Sale.csv"
+    ruta_barrios = BASE_DIR / "raw_data" / "barris-barrios.csv"
+    procesar_csv_viviendas(ruta_viviendas)
+    procesar_csv_barrios(ruta_barrios)
+    viviendas_preprocesadas = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
+    barrios_preprocesados = BASE_DIR / "processed_data" / "barris-barrios_processed.geojson"
+    preprocesamiento(viviendas_preprocesadas, barrios_preprocesados)
+    print("Preprocesamiento completado.")

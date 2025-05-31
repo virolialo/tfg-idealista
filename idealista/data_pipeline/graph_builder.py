@@ -374,3 +374,22 @@ def mostrar_grafo(data):
      
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
+    csv_in = BASE_DIR / "processed_data" / "Valencia_Sale_graph.csv"
+    exportar_nodos(csv_in)
+
+    # Ejecutar exportar_aristas_barrio para todos los CSV en graphs/nodes
+    nodes_dir = BASE_DIR / "graphs" / "nodes"
+    for csv_file in nodes_dir.glob("*.csv"):
+        print(f"Procesando aristas para {csv_file.name}")
+        exportar_aristas_barrio(csv_file)
+        exportar_aristas_vecindad(csv_file, 0.05)
+        exportar_aristas_vecindad(csv_file, 0.1)
+        exportar_aristas_vecindad(csv_file, 0.15)
+        exportar_aristas_vecindad(csv_file, 0.20)
+        exportar_aristas_vecindad(csv_file, 0.25)
+        exportar_aristas_vecindad(csv_file, 0.30)
+        exportar_aristas_similitud_caracteristicas(csv_file, 0.99)
+        exportar_aristas_similitud_caracteristicas(csv_file, 0.95)
+        exportar_aristas_similitud_caracteristicas(csv_file, 0.90)
+        exportar_aristas_similitud_caracteristicas(csv_file, 0.85)
+        exportar_aristas_similitud_caracteristicas(csv_file, 0.80)
