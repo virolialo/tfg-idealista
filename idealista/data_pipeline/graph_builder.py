@@ -18,7 +18,7 @@ def exportar_nodos(csv_entrada):
     Los archivos se guardan en graphs/nodes/Valencia_nodes_{NEIGHBOURID}.csv
     y graphs/nodes/Valencia_nodes_all.csv, respectivamente.
 
-    Parámetros:
+    Parametros:
     csv_entrada (str): Ruta al archivo CSV de entrada.
 
     Returns:
@@ -50,13 +50,6 @@ def exportar_nodos(csv_entrada):
         nodes_out = nodes_dir / f"Valencia_nodes_{barrio}.csv"
         df_barrio.to_csv(nodes_out, index=False, encoding='utf-8')
         print(f"Nodos del barrio {barrio} exportados a {nodes_out}")
-
-    # Archivo CSV completo
-    df_all = df[node_cols].copy()
-    df_all.insert(0, "NODEID", df_all.index)
-    nodes_all_out = nodes_dir / "Valencia_nodes_all.csv"
-    df_all.to_csv(nodes_all_out, index=False, encoding='utf-8')
-    print(f"Todos los nodos exportados a {nodes_all_out}")
 
 def exportar_aristas_barrio(nodos):
     """
@@ -93,7 +86,7 @@ def exportar_aristas_barrio(nodos):
 
     # Formato de ficheros de salida
     if len(barrios) == 1:
-        edges_out = edges_dir / f"Valencia_neighbour_{barrios[0]}_edges.csv"
+        edges_out = edges_dir / f"Valencia_neighbour_edges_{barrios[0]}.csv"
     else:
         edges_out = edges_dir / "Valencia_neighbour_edges_all.csv"
     df_edges.to_csv(edges_out, index=False, encoding='utf-8')
@@ -110,7 +103,7 @@ def exportar_aristas_vecindad(nodos, radio_km):
 
     Parametros:
     nodos (str): Ruta al archivo CSV de entrada.
-    radio_km (float): Radio en kilómetros para considerar vecinos.
+    radio_km (float): Radio en kilometros para considerar vecinos.
     
     Returns:
     Ninguno
@@ -250,9 +243,9 @@ def exportar_aristas_similitud_caracteristicas(nodos, threshold):
 def cargar_grafo(nodos, aristas, aristas_extra=None):
     """
     Carga un grafo a partir de un archivo de nodos y uno o dos archivos de aristas.
-    Si aristas_extra es None, devuelve un Data homogéneo.
+    Si aristas_extra es None, devuelve un Data homogeneo.
     Si aristas_extra no es None, devuelve un HeteroData con dos tipos de aristas.
-    El nombre del tipo de arista será 'vivienda_{caracteristica}', donde 'caracteristica' es la cabecera de la columna de peso si existe, o 'simple' si no hay peso.
+    El nombre del tipo de arista sera 'vivienda_{caracteristica}', donde 'caracteristica' es la cabecera de la columna de peso si existe, o 'simple' si no hay peso.
 
     Parametros:
     nodos (str): Ruta al archivo CSV de nodos.
@@ -260,7 +253,7 @@ def cargar_grafo(nodos, aristas, aristas_extra=None):
     aristas_extra (str, opcional): Ruta al archivo CSV de aristas secundario.
 
     Returns:
-    data (torch_geometric.data.Data o HeteroData): Grafo homogéneo o heterogéneo.
+    data (torch_geometric.data.Data o HeteroData): Grafo homogeneo o heterogeneo.
     """
     # Lectura de los CSV
     nodes_df = pd.read_csv(nodos)
@@ -313,6 +306,12 @@ def mostrar_grafo(data):
     """
     Muestra un grafo (Data o HeteroData) usando NetworkX y Matplotlib.
     Si es HeteroData, muestra cada tipo de arista en un color diferente.
+
+    Parametros:
+    data (torch_geometric.data.Data o HeteroData): Grafo a mostrar.
+
+    Returns:
+    Ninguno
     """
 
     if isinstance(data, Data):
@@ -375,5 +374,3 @@ def mostrar_grafo(data):
      
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
-    csv_in = BASE_DIR / "processed_data" / "Valencia_Sale_graph.csv"
-    exportar_nodos(csv_in)

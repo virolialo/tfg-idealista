@@ -1,0 +1,290 @@
+Grafo 2:
+Parámetros usados: {'hidden_channels': 55, 'dropout': 0.3635589087259094, 'lr': 0.0076792509263153225, 'epochs': 86}
+Métricas: MSE=1201357056.0000, MAE=25649.5059, R2=0.3978
+
+Grafo 3:
+Parámetros usados: {'hidden_channels': 105, 'dropout': 0.546605366070232, 'lr': 0.004908631895842485, 'epochs': 135}
+Métricas: MSE=3680608000.0000, MAE=38239.6797, R2=0.3761
+
+Grafo 4:
+Parámetros usados: {'hidden_channels': 114, 'dropout': 0.5924712608239063, 'lr': 0.0008460512375293491, 'epochs': 114}
+Métricas: MSE=15042074624.0000, MAE=76180.7266, R2=0.7857
+
+Grafo 5:
+Parámetros usados: {'hidden_channels': 68, 'dropout': 0.5119644035401361, 'lr': 0.016106554939696396, 'epochs': 132}
+Métricas: MSE=4658130944.0000, MAE=56017.2852, R2=0.8944
+
+Grafo 6:
+Parámetros usados: {'hidden_channels': 24, 'dropout': 0.5773581357400339, 'lr': 0.0036708073088210697, 'epochs': 143}
+Métricas: MSE=7984052224.0000, MAE=57789.3945, R2=0.3159
+
+Grafo 7:
+Parámetros usados: {'hidden_channels': 64, 'dropout': 0.6123420074359819, 'lr': 0.006532341770721834, 'epochs': 64}
+Métricas: MSE=2115044992.0000, MAE=37326.3438, R2=0.6219
+
+Grafo 8:
+Parámetros usados: {'hidden_channels': 118, 'dropout': 0.5575119753128198, 'lr': 0.0222719865595959, 'epochs': 152}
+Métricas: MSE=68855562240.0000, MAE=175354.7812, R2=0.2941
+
+Grafo 9:
+Parámetros usados: {'hidden_channels': 13, 'dropout': 0.1550507139143595, 'lr': 0.0035676461682085446, 'epochs': 121}
+Métricas: MSE=1442029696.0000, MAE=28766.6992, R2=0.4231
+
+Grafo 10:
+Parámetros usados: {'hidden_channels': 52, 'dropout': 0.28144693550905314, 'lr': 0.02789274236601128, 'epochs': 143}
+Métricas: MSE=1275952768.0000, MAE=23321.4141, R2=0.3807
+
+Grafo 11:
+Parámetros usados: {'hidden_channels': 33, 'dropout': 0.3656791331066931, 'lr': 0.018424357272950796, 'epochs': 200}
+Métricas: MSE=2804951552.0000, MAE=39344.3320, R2=0.1685
+
+Grafo 12:
+Parámetros usados: {'hidden_channels': 128, 'dropout': 0.07832900335928783, 'lr': 0.0014324961019000848, 'epochs': 136}
+Métricas: MSE=9737644032.0000, MAE=68292.5156, R2=0.3941
+
+Grafo 13:
+Parámetros usados: {'hidden_channels': 106, 'dropout': 0.1282122224051703, 'lr': 0.02399518675779895, 'epochs': 70}
+Métricas: MSE=1789780608.0000, MAE=31109.0820, R2=0.4235
+
+Grafo 17:
+Parámetros usados: {'hidden_channels': 48, 'dropout': 0.4339083979907834, 'lr': 0.0022306418114852963, 'epochs': 111}
+Métricas: MSE=11801071616.0000, MAE=72790.9844, R2=0.4683
+
+Grafo 18:
+Parámetros usados: {'hidden_channels': 56, 'dropout': 0.11002790606478349, 'lr': 0.036655963093511115, 'epochs': 132}
+Métricas: MSE=6104790528.0000, MAE=61039.4922, R2=0.7829
+
+Grafo 19:
+Parámetros usados: {'hidden_channels': 19, 'dropout': 0.442926441343995, 'lr': 0.010094804997779804, 'epochs': 66}
+Métricas: MSE=2451760896.0000, MAE=35848.2969, R2=0.4491
+
+Grafo 20:
+Parámetros usados: {'hidden_channels': 22, 'dropout': 0.3941094165205765, 'lr': 0.02623129276234432, 'epochs': 192}
+Métricas: MSE=372361312.0000, MAE=14802.2227, R2=0.4971
+
+Grafo 21:
+Parámetros usados: {'hidden_channels': 90, 'dropout': 0.11488225371710112, 'lr': 0.002543447572018496, 'epochs': 130}
+Métricas: MSE=604067136.0000, MAE=18797.1758, R2=0.4129
+
+Grafo 22:
+Parámetros usados: {'hidden_channels': 33, 'dropout': 0.14575878017883956, 'lr': 0.010620164657294403, 'epochs': 196}
+Métricas: MSE=2087718528.0000, MAE=35169.1367, R2=0.5524
+
+Grafo 23:
+Parámetros usados: {'hidden_channels': 108, 'dropout': 0.2752170746649464, 'lr': 0.004899166975653163, 'epochs': 148}
+Métricas: MSE=5508666880.0000, MAE=47456.8008, R2=0.1937
+
+Grafo 25:
+Parámetros usados: {'hidden_channels': 125, 'dropout': 0.06959134315374979, 'lr': 0.0007849279908913083, 'epochs': 136}
+Métricas: MSE=1571694592.0000, MAE=32984.6445, R2=0.7084
+
+Grafo 26:
+Parámetros usados: {'hidden_channels': 96, 'dropout': 0.1858706105177523, 'lr': 0.0073586392924691515, 'epochs': 86}
+Métricas: MSE=3985580032.0000, MAE=47630.0977, R2=0.9027
+
+Grafo 28:
+Parámetros usados: {'hidden_channels': 102, 'dropout': 0.4847641659521607, 'lr': 0.0033946896294565947, 'epochs': 113}
+Métricas: MSE=1260076928.0000, MAE=25522.6113, R2=0.5084
+
+Grafo 29:
+Parámetros usados: {'hidden_channels': 102, 'dropout': 0.3999792668394997, 'lr': 0.0011143187210791413, 'epochs': 52}
+Métricas: MSE=2397237504.0000, MAE=41865.8359, R2=0.2952
+
+Grafo 30:
+Parámetros usados: {'hidden_channels': 54, 'dropout': 0.5189150030351167, 'lr': 0.02675096096676178, 'epochs': 50}
+Métricas: MSE=5466031104.0000, MAE=51184.2539, R2=0.6111
+
+Grafo 33:
+Parámetros usados: {'hidden_channels': 9, 'dropout': 0.20308211727564277, 'lr': 0.02748350096709994, 'epochs': 147}
+Métricas: MSE=903950144.0000, MAE=24804.0547, R2=0.2476
+
+Grafo 34:
+Parámetros usados: {'hidden_channels': 96, 'dropout': 0.6862534539394518, 'lr': 0.051079634254870485, 'epochs': 131}
+Métricas: MSE=1068923584.0000, MAE=26268.0840, R2=0.3173
+
+Grafo 35:
+Parámetros usados: {'hidden_channels': 51, 'dropout': 0.368380552055096, 'lr': 0.009661520663039757, 'epochs': 152}
+Métricas: MSE=583225728.0000, MAE=19234.6973, R2=0.6592
+
+Grafo 36:
+Parámetros usados: {'hidden_channels': 114, 'dropout': 0.044722138720846245, 'lr': 0.013727604282180896, 'epochs': 87}
+Métricas: MSE=3391408384.0000, MAE=43656.5391, R2=0.6968
+
+Grafo 38:
+Parámetros usados: {'hidden_channels': 67, 'dropout': 0.14455609956716758, 'lr': 0.015981692898358876, 'epochs': 147}
+Métricas: MSE=1019823872.0000, MAE=22830.9004, R2=0.4843
+
+Grafo 39:
+Parámetros usados: {'hidden_channels': 32, 'dropout': 0.2384874927867341, 'lr': 0.03211666568544788, 'epochs': 108}
+Métricas: MSE=565258368.0000, MAE=17944.4160, R2=0.5718
+
+Grafo 40:
+Parámetros usados: {'hidden_channels': 8, 'dropout': 0.010285456336240728, 'lr': 0.01300208068505112, 'epochs': 186}
+Métricas: MSE=839964928.0000, MAE=19451.7383, R2=0.1036
+
+Grafo 41:
+Parámetros usados: {'hidden_channels': 34, 'dropout': 0.12259224217495605, 'lr': 0.016986074596786263, 'epochs': 81}
+Métricas: MSE=4699583488.0000, MAE=34043.2227, R2=0.8016
+
+Grafo 43:
+Parámetros usados: {'hidden_channels': 128, 'dropout': 0.12568394131135915, 'lr': 0.0006317835977642968, 'epochs': 152}
+Métricas: MSE=3433019392.0000, MAE=45029.3750, R2=0.6995
+
+Grafo 44:
+Parámetros usados: {'hidden_channels': 121, 'dropout': 0.3834612899590332, 'lr': 0.00544976701854062, 'epochs': 142}
+Métricas: MSE=350710496.0000, MAE=14423.1016, R2=0.1537
+
+Grafo 45:
+Parámetros usados: {'hidden_channels': 59, 'dropout': 0.2683162412046205, 'lr': 0.0008296922238623133, 'epochs': 125}
+Métricas: MSE=1776843008.0000, MAE=31479.7637, R2=0.3775
+
+Grafo 46:
+Parámetros usados: {'hidden_channels': 29, 'dropout': 0.196885888712117, 'lr': 0.0021434592013800085, 'epochs': 143}
+Métricas: MSE=895017344.0000, MAE=26091.5820, R2=0.5858
+
+Grafo 47:
+Parámetros usados: {'hidden_channels': 54, 'dropout': 0.3691983128714018, 'lr': 0.004218705013320224, 'epochs': 136}
+Métricas: MSE=1340617472.0000, MAE=26446.2832, R2=0.6556
+
+Grafo 48:
+Parámetros usados: {'hidden_channels': 75, 'dropout': 0.3161472235962178, 'lr': 0.0005621268856963631, 'epochs': 154}
+Métricas: MSE=1498546688.0000, MAE=30367.8496, R2=0.4398
+
+Grafo 49:
+Parámetros usados: {'hidden_channels': 52, 'dropout': 0.43395436858281944, 'lr': 0.039734662606252344, 'epochs': 169}
+Métricas: MSE=668907264.0000, MAE=17677.6211, R2=0.6202
+
+Grafo 50:
+Parámetros usados: {'hidden_channels': 126, 'dropout': 0.2627295285180945, 'lr': 0.0005531919816535987, 'epochs': 170}
+Métricas: MSE=6607661568.0000, MAE=71022.1328, R2=0.4168
+
+Grafo 51:
+Parámetros usados: {'hidden_channels': 41, 'dropout': 0.5083956282415468, 'lr': 0.0017801859296598108, 'epochs': 84}
+Métricas: MSE=6235131392.0000, MAE=61314.9023, R2=0.2891
+
+Grafo 52:
+Parámetros usados: {'hidden_channels': 84, 'dropout': 0.6954855489236259, 'lr': 0.0005791859693361543, 'epochs': 98}
+Métricas: MSE=21829961728.0000, MAE=97125.8672, R2=0.2908
+
+Grafo 53:
+Parámetros usados: {'hidden_channels': 45, 'dropout': 0.14912081736604776, 'lr': 0.014081678178708212, 'epochs': 136}
+Métricas: MSE=23285336064.0000, MAE=115070.7031, R2=0.4131
+
+Grafo 54:
+Parámetros usados: {'hidden_channels': 71, 'dropout': 0.31107804131362826, 'lr': 0.01081134407502642, 'epochs': 88}
+Métricas: MSE=1261613184.0000, MAE=27112.0664, R2=0.5025
+
+Grafo 55:
+Parámetros usados: {'hidden_channels': 119, 'dropout': 0.4561037063287804, 'lr': 0.08216740557587783, 'epochs': 70}
+Métricas: MSE=1876695168.0000, MAE=28306.2090, R2=0.4691
+
+Grafo 56:
+Parámetros usados: {'hidden_channels': 104, 'dropout': 0.16858012566851344, 'lr': 0.0008904193166086119, 'epochs': 114}
+Métricas: MSE=1818124416.0000, MAE=29481.8574, R2=0.2919
+
+Grafo 57:
+Parámetros usados: {'hidden_channels': 103, 'dropout': 0.027686122146868608, 'lr': 0.005613281114100454, 'epochs': 84}
+Métricas: MSE=1031278336.0000, MAE=23635.9434, R2=0.0403
+
+Grafo 58:
+Parámetros usados: {'hidden_channels': 98, 'dropout': 0.2545932794292365, 'lr': 0.012215082479271631, 'epochs': 150}
+Métricas: MSE=1445819264.0000, MAE=29030.2012, R2=0.5840
+
+Grafo 59:
+Parámetros usados: {'hidden_channels': 102, 'dropout': 0.24648152708311277, 'lr': 0.006972747081980467, 'epochs': 128}
+Métricas: MSE=2818785536.0000, MAE=35699.6719, R2=0.7471
+
+Grafo 60:
+Parámetros usados: {'hidden_channels': 9, 'dropout': 0.2520557760339084, 'lr': 0.08082353314670172, 'epochs': 57}
+Métricas: MSE=18989457408.0000, MAE=90522.1875, R2=0.6923
+
+Grafo 61:
+Parámetros usados: {'hidden_channels': 104, 'dropout': 0.5998321394390899, 'lr': 0.0003636857324989681, 'epochs': 193}
+Métricas: MSE=3364763392.0000, MAE=48285.5391, R2=0.2388
+
+Grafo 62:
+Parámetros usados: {'hidden_channels': 62, 'dropout': 0.21599323472225354, 'lr': 0.008367055940633097, 'epochs': 79}
+Métricas: MSE=1243744384.0000, MAE=19554.7715, R2=0.6862
+
+Grafo 67:
+Parámetros usados: {'hidden_channels': 43, 'dropout': 0.6915596063740497, 'lr': 0.016497315362193878, 'epochs': 151}
+Métricas: MSE=2208684288.0000, MAE=35188.3125, R2=0.2826
+
+Grafo 68:
+Parámetros usados: {'hidden_channels': 28, 'dropout': 0.33914877643234814, 'lr': 0.0035017618441095517, 'epochs': 167}
+Métricas: MSE=12860609536.0000, MAE=79439.5781, R2=0.6732
+
+Grafo 69:
+Parámetros usados: {'hidden_channels': 63, 'dropout': 0.37996046119696003, 'lr': 0.005047374578537784, 'epochs': 74}
+Métricas: MSE=909881984.0000, MAE=23415.4297, R2=0.5625
+
+Grafo 71:
+Parámetros usados: {'hidden_channels': 20, 'dropout': 0.22241265568471733, 'lr': 0.050335190738886974, 'epochs': 139}
+Métricas: MSE=1228353792.0000, MAE=25042.4727, R2=0.6193
+
+Grafo 72:
+Parámetros usados: {'hidden_channels': 68, 'dropout': 0.30701491063823666, 'lr': 0.002045448288334708, 'epochs': 102}
+Métricas: MSE=3314650112.0000, MAE=46201.2930, R2=0.2902
+
+Grafo 73:
+Parámetros usados: {'hidden_channels': 89, 'dropout': 0.4946391114785047, 'lr': 0.004416037479191986, 'epochs': 162}
+Métricas: MSE=3112370688.0000, MAE=40227.5234, R2=0.5561
+
+Grafo 74:
+Parámetros usados: {'hidden_channels': 94, 'dropout': 0.2848853425131866, 'lr': 0.09199966579005707, 'epochs': 65}
+Métricas: MSE=1462033280.0000, MAE=31943.9043, R2=0.3622
+
+Grafo 75:
+Parámetros usados: {'hidden_channels': 128, 'dropout': 0.24112738574992704, 'lr': 0.0045614615654339715, 'epochs': 181}
+Métricas: MSE=55921643520.0000, MAE=168217.9844, R2=0.7324
+
+Grafo 76:
+Parámetros usados: {'hidden_channels': 117, 'dropout': 0.504503793328502, 'lr': 0.02302361542637719, 'epochs': 194}
+Métricas: MSE=1415671424.0000, MAE=28029.9336, R2=0.6255
+
+Grafo 77:
+Parámetros usados: {'hidden_channels': 124, 'dropout': 0.2432144343412584, 'lr': 0.0046641180027488394, 'epochs': 93}
+Métricas: MSE=1715401216.0000, MAE=31145.2656, R2=0.4240
+
+Grafo 78:
+Parámetros usados: {'hidden_channels': 85, 'dropout': 0.5297652428375371, 'lr': 0.05487466926004987, 'epochs': 55}
+Métricas: MSE=6177601024.0000, MAE=61297.7930, R2=0.5301
+
+Grafo 79:
+Parámetros usados: {'hidden_channels': 117, 'dropout': 0.34513265580457614, 'lr': 0.09035118571590542, 'epochs': 97}
+Métricas: MSE=4489090560.0000, MAE=50795.9609, R2=0.6227
+
+Grafo 80:
+Parámetros usados: {'hidden_channels': 86, 'dropout': 0.33264258499390364, 'lr': 0.0033477272894171317, 'epochs': 163}
+Métricas: MSE=130148655104.0000, MAE=275558.4375, R2=0.2935
+
+Grafo 81:
+Parámetros usados: {'hidden_channels': 76, 'dropout': 0.43313544587644803, 'lr': 0.015249314682898524, 'epochs': 73}
+Métricas: MSE=1911835392.0000, MAE=32806.4805, R2=0.2842
+
+Grafo 82:
+Parámetros usados: {'hidden_channels': 62, 'dropout': 0.29674564405213066, 'lr': 0.004407522627874531, 'epochs': 158}
+Métricas: MSE=5462711296.0000, MAE=54673.3867, R2=0.2717
+
+Grafo 83:
+Parámetros usados: {'hidden_channels': 113, 'dropout': 0.556642540483979, 'lr': 0.005413447432531418, 'epochs': 105}
+Métricas: MSE=1697971072.0000, MAE=27745.1465, R2=0.4837
+
+Grafo 84:
+Parámetros usados: {'hidden_channels': 53, 'dropout': 0.1392289300800288, 'lr': 0.08514014272440916, 'epochs': 78}
+Métricas: MSE=1440219776.0000, MAE=31296.2031, R2=0.6064
+
+Grafo 86:
+Parámetros usados: {'hidden_channels': 128, 'dropout': 0.6915275654840767, 'lr': 0.002576073217028621, 'epochs': 144}
+Métricas: MSE=41676898304.0000, MAE=154996.6250, R2=0.4578
+
+Grafo 87:
+Parámetros usados: {'hidden_channels': 93, 'dropout': 0.0061747887028348256, 'lr': 0.004653748713148113, 'epochs': 93}
+Métricas: MSE=19988973568.0000, MAE=88521.7969, R2=0.6035
+
+Grafo 88:
+Parámetros usados: {'hidden_channels': 17, 'dropout': 0.25484947967381294, 'lr': 0.0006996134855974884, 'epochs': 188}
+Métricas: MSE=1503391616.0000, MAE=25908.6191, R2=0.4128
+
+MEDIA DE MÉTRICAS:
+MSE=8023459240.8889, MAE=49039.5381, R2=0.4810
