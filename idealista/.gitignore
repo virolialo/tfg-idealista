@@ -15,6 +15,10 @@ venv/
 # Base de datos local
 db.sqlite3
 
+# Migraciones de Django
+*/migrations/
+*/migrations/*
+!/migrations/__init__.py
 
 # Archivos del sistema
 .DS_Store
