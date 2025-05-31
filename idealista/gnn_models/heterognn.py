@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import HeteroConv, GCNConv
-from torch_geometric.data import HeteroData
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 class HeteroGNN(torch.nn.Module):
@@ -10,9 +9,9 @@ class HeteroGNN(torch.nn.Module):
         Modelo HeteroGNN para regresion de nodos en grafos heterogeneos.
 
         Parametros:
-        metadata: Metadata del grafo heterogeneo.
-        hidden_channels: Numero de canales ocultos para las capas GCN.
-        dropout: Tasa de dropout para la regularizacion.
+        metadata: Metadata del grafo heterogeneo
+        hidden_channels: Numero de canales ocultos para las capas GCN
+        dropout: Tasa de dropout para la regularizacion
 
         Returns:
         Ninguno
@@ -31,10 +30,10 @@ class HeteroGNN(torch.nn.Module):
         La funcion realiza el paso hacia adelante del modelo HeteroGNN.
 
         Parametros:
-        data: HeteroData que contiene el grafo y las caracteristicas de los nodos.
+        data: HeteroData que contiene el grafo y las caracteristicas de los nodos
 
         Returns:
-        x: Salida del modelo, que es una prediccion de precios de nodos.
+        x: Salida del modelo, que es una prediccion de precios de nodos
         """
         x_dict = self.conv1(data.x_dict, data.edge_index_dict)
         x = x_dict['house']
@@ -48,17 +47,17 @@ def train_node_regression_hetero(data, price_index=0, epochs=100, lr=0.01, hidde
     La funcion entrena un modelo HeteroGNN para la regresion de precios de nodos en un grafo heterogeneo.
 
     Parametros:
-    data: HeteroData que contiene el grafo y las caracteristicas de los nodos.
-    price_index: Indice de la caracteristica del precio en los nodos.
-    epochs: Numero de epocas para el entrenamiento.
-    lr: Tasa de aprendizaje para el optimizador.
-    hidden_channels: Numero de canales ocultos para las capas GCN.
-    dropout: Tasa de dropout para la regularizacion.
+    data: HeteroData que contiene el grafo y las caracteristicas de los nodos
+    price_index: Indice de la caracteristica del precio en los nodos
+    epochs: Numero de epocas para el entrenamiento
+    lr: Tasa de aprendizaje para el optimizador
+    hidden_channels: Numero de canales ocultos para las capas GCN
+    dropout: Tasa de dropout para la regularizacion
 
     Returns:
-    mse: Error cuadratico medio en el conjunto de prueba.
-    mae: Error absoluto medio en el conjunto de prueba.
-    r2: Coeficiente de determinacion R^2 en el conjunto de prueba.
+    mse: Error cuadratico medio en el conjunto de prueba
+    mae: Error absoluto medio en el conjunto de prueba
+    r2: Coeficiente de determinacion R^2 en el conjunto de prueba
     """
     if data['house'].num_nodes < 10:
         print(f"Saltando grafo con solo {data['house'].num_nodes} nodos.")

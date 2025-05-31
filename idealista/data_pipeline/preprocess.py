@@ -16,7 +16,7 @@ def procesar_csv_viviendas(csv_entrada):
     Luego, escribe el contenido en un nuevo archivo CSV de salida en la carpeta /processed_data.
 
     Parametros:
-    csv_entrada (str): Ruta al archivo CSV de entrada.
+    csv_entrada (str): Ruta al archivo CSV de entrada
 
     Returns:
     Ninguno
@@ -27,10 +27,10 @@ def procesar_csv_viviendas(csv_entrada):
         Convierte el CSV en una lista de diccionarios, donde cada diccionario representa una fila del CSV.
 
         Parametros:
-        ruta_archivo (str): Ruta al archivo CSV.
+        ruta_archivo (str): Ruta al archivo CSV
 
         Returns:
-        list: Lista de diccionarios con los datos del archivo CSV.
+        list: Lista de diccionarios con los datos del archivo CSV
         """
         datos = []
         try:
@@ -54,9 +54,9 @@ def procesar_csv_viviendas(csv_entrada):
         El nombre de salida sera el del archivo de entrada + '_processed.csv', siempre en /processed_data.
 
         Parametros:
-        datos (list): Lista de diccionarios con los datos a escribir.
-        encabezados (list): Lista de encabezados para el archivo CSV.
-        csv_entrada (str): Ruta al archivo CSV de entrada.
+        datos (list): Lista de diccionarios con los datos a escribir
+        encabezados (list): Lista de encabezados para el archivo CSV
+        csv_entrada (str): Ruta al archivo CSV de entrada
 
         Returns:
         Ninguno
@@ -80,8 +80,6 @@ def procesar_csv_viviendas(csv_entrada):
     base_dir = Path(__file__).resolve().parent
     directorio = base_dir / "processed_data"
     directorio.mkdir(parents=True, exist_ok=True)
-    nombre_salida = Path(csv_entrada).name
-    ruta_salida = directorio / nombre_salida
 
     contenido = leer_csv(csv_entrada)
 
@@ -91,80 +89,99 @@ def procesar_csv_viviendas(csv_entrada):
 
 def procesar_csv_barrios(ruta_csv):
     """
-    Lee un CSV de barrios y realiza el preprocesamiento necesario para convertirlo
-    en un GeoDataFrame. Elimina columnas innecesarias, renombra columnas y convierte
-    la geometria de GeoJSON a objetos shapely.
+    La funcion procesa un archivo CSV de barrios donde:
+    - Elimina columnas innecesarias
+    - Renombra columnas para estandarizar
+    - Asegura que la columna NEIGHBOURID sea unica y numerica
 
-    Guarda dos archivos de salida:
-    - Un CSV con los barrios procesados para almacenar en la base de datos de Django.
-    - Un GeoJSON con la geometria de los barrios.
+    Genera dos archivos de salida:
+    - Un CSV simple para Django con las columnas NEIGHBOURID y NEIGHBOURNAME
+    - Un GeoJSON con la geometria de los barrios
 
     Parametros:
-    ruta_csv (str): Ruta al archivo CSV de barrios.
+    ruta_csv (str): Ruta al archivo CSV de barrios
 
     Returns:
     Ninguno
     """
-    base_dir = Path(__file__).resolve().parent
-    directorio = base_dir / "processed_data"
-    directorio.mkdir(parents=True, exist_ok=True)
+    try:
+        base_dir = Path(__file__).resolve().parent
+        processed_dir = base_dir / "processed_data"
+        processed_dir.mkdir(parents=True, exist_ok=True)
 
-    # Nombres de salida
-    nombre_base = Path(ruta_csv).stem + "_processed"
-    ruta_csv_salida = directorio / "barris-barrios_data.csv"
-    ruta_geojson_salida = directorio / f"{nombre_base}.geojson"
+        nombre_base = Path(ruta_csv).stem + "_processed"
+        ruta_csv_salida = processed_dir / "barris-barrios_data.csv"
+        ruta_geojson_salida = processed_dir / f"{nombre_base}.geojson"
 
-    df = pd.read_csv(ruta_csv, sep=';', dtype=str)
+        df = pd.read_csv(ruta_csv, sep=';', dtype=str) # Barrios
 
-    # Columnas que no se necesitan
-    df = df.drop(columns=['codbarrio', 'gis_gis_barrios_area', 'geo_point_2d', 'coddistrit'])
+        # Eliminacion de columnas
+        columnas_a_eliminar = ['codbarrio', 'gis_gis_barrios_area', 'geo_point_2d', 'coddistrit']
+        df = df.drop(columns=columnas_a_eliminar, errors='ignore')
 
-    # Se renombran las columnas para que siga el formato del CSV de viviendas
-    df = df.rename(columns={
-        'coddistbar': 'NEIGHBOURID',
-        'nombre': 'NEIGHBOURNAME',
-        'geo_shape': 'geometry'
-    })
+        # Estandarizacion de cabeceras
+        df = df.rename(columns={
+            'coddistbar': 'NEIGHBOURID',
+            'nombre': 'NEIGHBOURNAME',
+            'geo_shape': 'geometry'
+        })
 
-    # Identificadores unicos para cada barrio
-    df['NEIGHBOURID'] = range(1, len(df) + 1)
+        # Identificador unico
+        if not pd.api.types.is_numeric_dtype(df['NEIGHBOURID']):
+            df['NEIGHBOURID'] = range(1, len(df) + 1)
 
-    df[['NEIGHBOURID', 'NEIGHBOURNAME']].to_csv(ruta_csv_salida, index=False, encoding='utf-8')
+        # CSV de datos para Django
+        df[['NEIGHBOURID', 'NEIGHBOURNAME']].to_csv(ruta_csv_salida, index=False, encoding='utf-8')
 
-    # Se convierte la columna geometry (GeoJSON string) a objetos shapely
-    def geojson_to_shape(geojson_str):
-        try:
-            geojson = json.loads(geojson_str)
-            return shapely.geometry.shape(geojson)
-        except Exception:
-            return None
+        # Convertir la columna geometry (GeoJSON string) a objetos shapely
+        def geojson_to_shape(geojson_str):
+            """
+            La funcion convierte una cadena GeoJSON a un objeto shapely.
 
-    df['geometry'] = df['geometry'].apply(geojson_to_shape)
+            Parametros:
+            geojson_str (str): Cadena GeoJSON que representa la geometria
 
-    # Se crea el GeoJSON
-    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
-    gdf.to_file(ruta_geojson_salida, driver='GeoJSON')
-    print(f"Archivos guardados en {ruta_csv_salida} y {ruta_geojson_salida}")
+            Returns:
+            shapely.geometry: Objeto shapely representando la geometria
+            None: Si la conversion falla
+            """
+            try:
+                geojson = json.loads(geojson_str)
+                return shapely.geometry.shape(geojson)
+            except Exception:
+                return None
+
+        df['geometry'] = df['geometry'].apply(geojson_to_shape)
+
+        # GeoJSON de barrios
+        gdf = gpd.GeoDataFrame(df, geometry='geometry', crs="EPSG:4326")
+        gdf.to_file(ruta_geojson_salida, driver='GeoJSON')
+        print(f"Archivos guardados en {ruta_csv_salida} y {ruta_geojson_salida}")
+
+    except Exception as e:
+        print(f"Error procesando el CSV de barrios: {e}")
 
 def preprocesamiento(ruta_viviendas, ruta_barrios):
     """
-    Preprocesa el archivo CSV de entrada, eliminando atributos considerados
-    como innecesarios para el contexto del problema, ademas de eliminar filas
-    donde los valores sean nulos, vacios o incongruentes. Convierte ciertos
-    atributos a tipos especificos.
+    La funcion realiza el preprocesamiento de los datos de viviendas y barrios, para
+    preparar los datos para su uso en modelos de machine learning.
 
-    La funcion tambien normaliza ciertos atributos y guarda el resultado en un nuevo archivo CSV.
+    Genera los siguientes archivos de salida:
+    - Un CSV con los datos de viviendas preprocesados
+    - Un CSV con los datos de viviendas sin normalizar
 
-    Se generan dos archivos de salida:
-    - Un CSV con los datos de viviendas preprocesados.
-    - Un CSV con los datos de viviendas para almacenar en la base de datos de Django.
+    Modifica/elimina los siguientes archivos:
+    - Un GeoJSON con los barrios que tienen viviendas asociadas
+    - Un CSV con los barrios que tienen viviendas asociadas
+    - Elimina el archivo de entrada de viviendas tras el procesamiento
 
     Parametros:
-    ruta_viviendas (str): Ruta al archivo CSV de viviendas.
-    ruta_barrios (str): Ruta al archivo CSV de barrios.
+    ruta_viviendas (str): Ruta al archivo CSV de viviendas
+    ruta_barrios (str): Ruta al archivo GeoJSON de barrios
 
     Returns:
-    pd.DataFrame: DataFrame de pandas con el contenido del archivo CSV procesado.
+    pd.DataFrame: DataFrame con los datos de viviendas preprocesados
+    None: Si ocurre un error durante el procesamiento
     """
     columnas_a_eliminar = [
         "PERIOD", "UNITPRICE", "AMENITYID", "ISPARKINGSPACEINCLUDEDINPRICE",
@@ -187,40 +204,39 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
         df = pd.read_csv(ruta_viviendas, delimiter=',', encoding='utf-8') # Viviendas
         gdf_barrios = gpd.read_file(ruta_barrios) # Barrios
         
-        # Eliminacion de valores faltantes el la columna FLOORCLEAN
+        # Elimina de valores faltantes de FLOORCLEAN
         df = df.dropna(subset=["FLOORCLEAN"])
 
-        # Elimina duplicados en la columna ASSETID, conservando uno de forma aleatoria
-        df = df.drop_duplicates(subset=["ASSETID"], keep="first")
+        # Elimina duplicados en ASSETID
+        df = df.drop_duplicates(subset=["ASSETID"], keep="first") # Conserva el primero
         
-        # Conversion de columnas numericas al tipo entero
+        # Conversion columnas numericas a entero
         for columna in columnas_a_convertir_entero:
             if columna in df.columns:
                 df[columna] = df[columna].fillna(0).astype(int)
 
-        # Añade el atributo ANTIQUITY = 2018 - CADCONSTRUCTIONYEAR
+        # Añade atributo ANTIQUITY = 2018 - CADCONSTRUCTIONYEAR
         if "CADCONSTRUCTIONYEAR" in df.columns:
             df["ANTIQUITY"] = 2018 - df["CADCONSTRUCTIONYEAR"]
         
         # Elimina columnas innecesarias
         df = df.drop(columns=columnas_a_eliminar, errors='ignore')
 
-        # Modificacion de CADASTRALQUALITYID:
+        # Modifica CADASTRALQUALITYID:
         if "CADASTRALQUALITYID" in df.columns:
             df["CADASTRALQUALITYID"] = df["CADASTRALQUALITYID"].apply(lambda x: 9 - x if pd.notnull(x) else x)
 
         def buscar_barrio(row):
             """
-            La funcion determina en que barrio esta contenido
-            la vivienda a partir de su latitud y longitud y el objeto
-            geometrico de los barrios. Devolvera el barrio correspondiente o 
-            'NA' si no se encuentra.
+            La funcion busca el barrio correspondiente a una vivienda
+            utilizando las coordenadas de latitud y longitud.
+            Si no encuentra un barrio, devuelve 'NA'.
 
             Parametros:
-            row (pd.Series): Fila del DataFrame que contiene la latitud y longitud.
+            row (pd.Series): Fila del DataFrame con las coordenadas de la vivienda
 
             Returns:
-            pd.Series: Barrio correspondiente o 'NA' si no se encuentra.
+            pd.Series: Serie con el NEIGHBOURID del barrio encontrado o 'NA'
             """
             try:
                 point = shapely.geometry.Point(float(row['LONGITUDE']), float(row['LATITUDE']))
@@ -236,16 +252,15 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
         df[['NEIGHBOURID']] = df.apply(buscar_barrio, axis=1)
         df = df[(df['NEIGHBOURID'] != 'NA')].reset_index(drop=True)
 
-        # Directorio de salida fijo y nombres de archivo requeridos
+        # Directorio y archivos de salida
         base_dir = Path(__file__).resolve().parent
         processed_dir = base_dir / "processed_data"
         processed_dir.mkdir(parents=True, exist_ok=True)
         ruta_salida_viviendas = processed_dir / "Valencia_Sale_graph.csv"
         ruta_salida_no_normalizado = processed_dir / "Valencia_Sale_data.csv"
-        ruta_salida_barrios_csv = processed_dir / "barris-barrios_data.csv"
-        ruta_salida_barrios_geojson = processed_dir / "barris-barrios_processed.geojson"
+        ruta_salida_barrios = processed_dir / "barris-barrios_data.csv"
 
-        # Guarda el DataFrame antes de normalizar
+        # CSV no normalizado
         df.to_csv(ruta_salida_no_normalizado, index=False, encoding='utf-8')
 
         # Normalizacion
@@ -254,20 +269,16 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
             if col in df.columns:
                 df[[col]] = scaler.fit_transform(df[[col]])
 
+        # CSV normalizado
         df.to_csv(ruta_salida_viviendas, index=False, encoding='utf-8')
 
-        # Eliminacion de barrios sin viviendas asociadas
-        if ruta_salida_barrios_csv.exists():
-            barrios_df = pd.read_csv(ruta_salida_barrios_csv, encoding='utf-8')
+        # Elimina barrios sin viviendas asociadas
+        if ruta_salida_barrios.exists():
+            barrios_df = pd.read_csv(ruta_salida_barrios, encoding='utf-8')
             barrios_con_viviendas = df['NEIGHBOURID'].unique()
             barrios_df_filtrado = barrios_df[barrios_df['NEIGHBOURID'].astype(str).isin(barrios_con_viviendas.astype(str))]
-            barrios_df_filtrado.to_csv(ruta_salida_barrios_csv, index=False, encoding='utf-8')
-
-        if ruta_salida_barrios_geojson.exists():
-            gdf_geo = gpd.read_file(ruta_salida_barrios_geojson)
-            barrios_con_viviendas = df['NEIGHBOURID'].unique()
-            gdf_geo_filtrado = gdf_geo[gdf_geo['NEIGHBOURID'].astype(str).isin(barrios_con_viviendas.astype(str))]
-            gdf_geo_filtrado.to_file(ruta_salida_barrios_geojson, driver='GeoJSON')
+            barrios_df_filtrado.to_csv(ruta_salida_barrios, index=False, encoding='utf-8')
+            print(f"Barrios sin viviendas eliminados de {ruta_salida_barrios}")
 
         # Elimina el archivo de entrada tras procesar
         if os.path.exists(ruta_viviendas):
@@ -291,7 +302,7 @@ if __name__ == "__main__":
     ruta_barrios = BASE_DIR / "raw_data" / "barris-barrios.csv"
     procesar_csv_viviendas(ruta_viviendas)
     procesar_csv_barrios(ruta_barrios)
-    viviendas_preprocesadas = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
-    barrios_preprocesados = BASE_DIR / "processed_data" / "barris-barrios_processed.geojson"
-    preprocesamiento(viviendas_preprocesadas, barrios_preprocesados)
+    viviendas = BASE_DIR / "processed_data" / "Valencia_Sale_processed.csv"
+    barrios = BASE_DIR / "processed_data" / "barris-barrios_processed.geojson"
+    preprocesamiento(viviendas, barrios)
     print("Preprocesamiento completado.")

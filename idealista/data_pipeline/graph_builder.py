@@ -10,16 +10,11 @@ import networkx as nx
 
 def exportar_nodos(csv_entrada):
     """
-    La funcion crea archivos CSV para definir los nodos de un grafo a partir
-    de un archivo CSV de viviendas. Pueden generarse dos tipos de archivos:
-    - Un archivo por barrio, que contiene los nodos de un barrio concreto.
-    - Un archivo con todos los nodos, que contiene todas la viviendas de Valencia.
-
-    Los archivos se guardan en graphs/nodes/Valencia_nodes_{NEIGHBOURID}.csv
-    y graphs/nodes/Valencia_nodes_all.csv, respectivamente.
+    La funcion exporta los nodos de un grafo a partir de un archivo CSV de viviendas.
+    Guarda los nodos en archivos CSV separados por barrio en el directorio graphs/nodes.
 
     Parametros:
-    csv_entrada (str): Ruta al archivo CSV de entrada.
+    csv_entrada (str): Ruta al archivo CSV de entrada que contiene las viviendas
 
     Returns:
     Ninguno
@@ -54,14 +49,11 @@ def exportar_nodos(csv_entrada):
 def exportar_aristas_barrio(nodos):
     """
     La funcion crea un archivo CSV con las aristas de un grafo a partir
-    de un archivo CSV de viviendas. Las aristas se crean entre nodos
-    que pertenecen al mismo barrio, considerando que son vecinos.
-
-    El archivo se guarda en graphs/edges/neighbour/Valencia_neighbour_edges_<NEIGHBOURID>.csv
-    o graphs/edges/neighbour/Valencia_neighbour_edges_all.csv si participan todos los barrios.
+    de un archivo CSV de nodos. Las aristas se crean entre nodos que pertenecen
+    al mismo barrio, considerando que son vecinos.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de entrada.
+    nodos (str): Ruta al archivo CSV de nodos
 
     Returns:
     Ninguno
@@ -71,40 +63,37 @@ def exportar_aristas_barrio(nodos):
     edge_rows = []
     barrios = df["NEIGHBOURID"].unique()
 
-    # Agrupar por barrio
-    for _, group in df.groupby("NEIGHBOURID"):
+    # Agrupar por barrio y exportar solo por barrio
+    for barrio in barrios:
+        group = df[df["NEIGHBOURID"] == barrio]
         idx = group.index.to_numpy()
         if len(idx) > 1:
             comb = np.array(list(itertools.combinations(idx, 2)))
-            edge_rows.extend([{"source": i, "target": j} for i, j in comb])
-    df_edges = pd.DataFrame(edge_rows)
+            edge_rows = [{"source": i, "target": j} for i, j in comb]
+            df_edges = pd.DataFrame(edge_rows)
 
-    # Directorio de salida
-    BASE_DIR = Path(__file__).resolve().parent
-    edges_dir = BASE_DIR / "graphs" / "edges" / "neighbour"
-    edges_dir.mkdir(parents=True, exist_ok=True)
+            # Directorio de salida
+            BASE_DIR = Path(__file__).resolve().parent
+            edges_dir = BASE_DIR / "graphs" / "edges" / "neighbour"
+            edges_dir.mkdir(parents=True, exist_ok=True)
 
-    # Formato de ficheros de salida
-    if len(barrios) == 1:
-        edges_out = edges_dir / f"Valencia_neighbour_edges_{barrios[0]}.csv"
-    else:
-        edges_out = edges_dir / "Valencia_neighbour_edges_all.csv"
-    df_edges.to_csv(edges_out, index=False, encoding='utf-8')
-    print(f"Aristas exportadas a {edges_out}")
+            # Ficheros de salida por barrio
+            edges_out = edges_dir / f"Valencia_neighbour_edges_{barrio}.csv"
+            df_edges.to_csv(edges_out, index=False, encoding='utf-8')
+            print(f"Aristas exportadas a {edges_out}")
+        else:
+            print(f"Barrio {barrio} no tiene suficientes nodos para crear aristas.")
 
 def exportar_aristas_vecindad(nodos, radio_km):
     """
-    La funcion crea un archivo CSV con las aristas de un grafo a partir
-    de un archivo CSV de viviendas. Las aristas se crean entre nodos
-    que se encuentran dentro de un radio determinado, considerando que son vecinos.
-
-    Ademas, si un nodo no tiene vecinos dentro del radio, se conecta al nodo mas cercano,
-    asegurando asi que no existen nodos aisalados.
+    La funcion crea un archivo CSV con las aristas de un grafo a partir de un archivo CSV de nodos.
+    Las aristas se crean entre nodos que estan dentro de un radio especificado en kilometros.
+    Si un nodo no tiene vecinos dentro del radio, se conecta al nodo mas cercano.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de entrada.
-    radio_km (float): Radio en kilometros para considerar vecinos.
-    
+    nodos (str): Ruta al archivo CSV de nodos
+    radio_km (float): Radio en kilometros para considerar vecinos
+
     Returns:
     Ninguno
     """
@@ -126,11 +115,11 @@ def exportar_aristas_vecindad(nodos, radio_km):
             if i < j:
                 edge_rows.add((i, j, dist * 6371.0))
 
-    # Detectar nodos aislados (sin vecinos)
+    # Deteccion de nodos aislados
     vecinos = {i for edge in edge_rows for i in edge[:2]}
     aislados = set(range(n)) - vecinos
 
-    # Busqueda del vecino mas cercano para nodos aislados
+    # Busqueda del vecino mas cercano en nodos aislados
     if aislados:
         dists, inds = tree.query(coords_rad, k=n)
         for i in aislados:
@@ -149,33 +138,35 @@ def exportar_aristas_vecindad(nodos, radio_km):
     edges_dir = BASE_DIR / "graphs" / "edges" / "kdd" / f"{radio_str}_km"
     edges_dir.mkdir(parents=True, exist_ok=True)
 
-    # Formato de ficheros de salida
+    # Ficheros de salida por barrio
     barrios = df["NEIGHBOURID"].unique()
     if len(barrios) == 1:
         edges_out = edges_dir / f"Valencia_kdd_edges_{radio_str}_{barrios[0]}.csv"
+        df_edges.to_csv(edges_out, index=False, encoding='utf-8')
+        print(f"Aristas por vecindad exportadas a {edges_out}")
     else:
-        edges_out = edges_dir / f"Valencia_kdd_edges_{radio_str}_all.csv"
-
-    df_edges.to_csv(edges_out, index=False, encoding='utf-8')
-    print(f"Aristas por vecindad exportadas a {edges_out}")
+        for barrio in barrios:
+            idxs = df[df["NEIGHBOURID"] == barrio].index.values
+            mask = df_edges["source"].isin(idxs) & df_edges["target"].isin(idxs)
+            df_edges_barrio = df_edges[mask]
+            if not df_edges_barrio.empty:
+                edges_out = edges_dir / f"Valencia_kdd_edges_{radio_str}_{barrio}.csv"
+                df_edges_barrio.to_csv(edges_out, index=False, encoding='utf-8')
+                print(f"Aristas por vecindad exportadas a {edges_out}")
 
 def exportar_aristas_similitud_caracteristicas(nodos, threshold):
     """
-    La funcion crea un archivo CSV con las aristas de un grafo a partir
-    de un archivo CSV de viviendas. Las aristas se crean entre nodos
-    que tienen una similitud de caracteristicas mayor o igual al umbral especificado.
-
-    Ademas, si un nodo no tiene vecinos con similitud suficiente, se conecta al nodo mas similar,
-    asegurando asi que no existen nodos aislados.
+    La funcion crea un archivo CSV con las aristas de un grafo a partir de un archivo CSV de nodos.
+    Las aristas se crean entre nodos que son similares en base a un umbral de similitud.
+    Si un nodo no tiene vecinos similares, se conecta al nodo mas similar.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de entrada.
-    threshold (float): Umbral de similitud para considerar vecinos.
-
+    nodos (str): Ruta al archivo CSV de nodos
+    threshold (float): Umbral de similitud entre 0 y 1
+    
     Returns:
     Ninguno
     """
-    # Lectura del CSV
     df = pd.read_csv(nodos)
 
     # Atributos para calcular la similitud
@@ -222,7 +213,7 @@ def exportar_aristas_similitud_caracteristicas(nodos, threshold):
 
     df_edges = pd.DataFrame(list(edge_rows), columns=["source", "target", "SIMILARITY"])
 
-    # Formateo del radio para nombres de archivo
+    # Formateo del threshold para nombres de archivo
     threshold_str = f"{threshold:.3f}".replace('.', '').zfill(4)
 
     # Salida de archivos
@@ -230,15 +221,21 @@ def exportar_aristas_similitud_caracteristicas(nodos, threshold):
     sim_dir = BASE_DIR / "graphs" / "edges" / "similarity" / f"{threshold_str}_sim"
     sim_dir.mkdir(parents=True, exist_ok=True)
 
-    # Formato de ficheros de salida
+    # Ficheros de salida por barrio
     barrios = df["NEIGHBOURID"].unique()
     if len(barrios) == 1:
         edges_out = sim_dir / f"Valencia_similarity_edges_{threshold_str}_{barrios[0]}.csv"
+        df_edges.to_csv(edges_out, index=False, encoding='utf-8')
+        print(f"Aristas por similitud exportadas a {edges_out}")
     else:
-        edges_out = sim_dir / f"Valencia_similarity_edges_{threshold_str}_all.csv"
-
-    df_edges.to_csv(edges_out, index=False, encoding='utf-8')
-    print(f"Aristas por similitud exportadas a {edges_out}")
+        for barrio in barrios:
+            idxs = df[df["NEIGHBOURID"] == barrio].index.values
+            mask = df_edges["source"].isin(idxs) & df_edges["target"].isin(idxs)
+            df_edges_barrio = df_edges[mask]
+            if not df_edges_barrio.empty:
+                edges_out = sim_dir / f"Valencia_similarity_edges_{threshold_str}_{barrio}.csv"
+                df_edges_barrio.to_csv(edges_out, index=False, encoding='utf-8')
+                print(f"Aristas por similitud exportadas a {edges_out}")
 
 def cargar_grafo(nodos, aristas, aristas_extra=None):
     """
@@ -313,7 +310,6 @@ def mostrar_grafo(data):
     Returns:
     Ninguno
     """
-
     if isinstance(data, Data):
         # Grafo homogeneo
         edge_index = data.edge_index.cpu().numpy()
@@ -377,7 +373,6 @@ if __name__ == "__main__":
     csv_in = BASE_DIR / "processed_data" / "Valencia_Sale_graph.csv"
     exportar_nodos(csv_in)
 
-    # Ejecutar exportar_aristas_barrio para todos los CSV en graphs/nodes
     nodes_dir = BASE_DIR / "graphs" / "nodes"
     for csv_file in nodes_dir.glob("*.csv"):
         print(f"Procesando aristas para {csv_file.name}")
@@ -393,3 +388,4 @@ if __name__ == "__main__":
         exportar_aristas_similitud_caracteristicas(csv_file, 0.90)
         exportar_aristas_similitud_caracteristicas(csv_file, 0.85)
         exportar_aristas_similitud_caracteristicas(csv_file, 0.80)
+    print("Exportacion de aristas completada.")
