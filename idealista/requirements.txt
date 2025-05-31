@@ -1,0 +1,30 @@
+# Framework principal
+Django
+
+# Base de datos relacional (PostgreSQL)
+psycopg2-binary
+
+# Base de datos no relacional (Neo4j)
+neo4j
+
+# Librerías para manipulación y analisis de datos
+numpy
+pandas
+geopandas
+shapely
+matplotlib
+scikit-learn
+
+# Redes neuronales y aprendizaje automático
+torch
+torchvision
+torchaudio
+torch_geometric
+optuna
+
+# Analisis de grafos
+networkx
+py2neo
+
+# Manejo de archivos R
+pyreadr
