@@ -11,7 +11,7 @@ sys.path.append(str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'idealista.settings')
 django.setup()
 
-from webapp.models import Barriada, Hiperparametros, Vivienda
+from webapp.models import Barriada, Vivienda
 
 def cargar_barrios_desde_csv(ruta_csv):
     """
@@ -67,7 +67,7 @@ def cargar_viviendas_desde_csv(ruta_csv):
 
                 vivienda = Vivienda(
                     id=fila["ASSETID"],
-                    precio=int(fila["PRICE"]),
+                    precio_m2=float(fila["UNITPRICE"]),
                     metros_construidos=int(fila["CONSTRUCTEDAREA"]),
                     num_hab=int(fila["ROOMNUMBER"]),
                     num_wc=int(fila["BATHNUMBER"]),

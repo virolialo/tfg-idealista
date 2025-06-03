@@ -15,7 +15,7 @@ class Vivienda(models.Model):
     ]
 
     id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
-    precio = models.IntegerField()  # Precio de la vivienda
+    precio_m2 = models.FloatField()  # Precio de la vivienda
     metros_construidos = models.IntegerField()  # Metros cuadrados construidos
     num_hab = models.IntegerField()  # Número de habitaciones
     num_wc = models.IntegerField()  # Número de baños
@@ -57,7 +57,7 @@ class Vivienda(models.Model):
     )
 
     def __str__(self):
-        return f"Housing {self.id} - Price: {self.precio} ({self.metros_construidos} m2)"
+        return f"Vivienda {self.id} - Precio: {self.precio_m2} x ({self.metros_construidos} m2)"
     
 class Metro(models.Model):
     id = models.AutoField(primary_key=True)  # ID autoincremental
