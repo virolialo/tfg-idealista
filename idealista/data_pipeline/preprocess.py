@@ -184,7 +184,7 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
     None: Si ocurre un error durante el procesamiento
     """
     columnas_a_eliminar = [
-        "PERIOD", "UNITPRICE", "AMENITYID", "ISPARKINGSPACEINCLUDEDINPRICE",
+        "PERIOD", "PRICE", "AMENITYID", "ISPARKINGSPACEINCLUDEDINPRICE",
         "PARKINGSPACEPRICE", "CONSTRUCTIONYEAR", "FLATLOCATIONID",
         "CADCONSTRUCTIONYEAR", "CADDWELLINGCOUNT", "geometry",
     ]
