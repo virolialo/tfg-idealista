@@ -7,28 +7,11 @@ class Barriada(models.Model):
     def __str__(self):
         return f"Barriada {self.id} - Name: {self.nombre}"
 
-class Hiperparametros(models.Model):
-    barriada = models.OneToOneField(
-        Barriada,
-        to_field='id',
-        on_delete=models.CASCADE,
-        related_name='hiperparametros'
-    )
-    hidden_channels = models.IntegerField()
-    dropout = models.FloatField()
-    lr = models.FloatField()
-    epochs = models.IntegerField()
-
-    def __str__(self):
-        return (f"Hiperparámetros para Barriada {self.barriada.id}: "
-                f"hidden_channels={self.hidden_channels}, dropout={self.dropout}, "
-                f"lr={self.lr}, epochs={self.epochs}")
-
 class Vivienda(models.Model):
     STATUS_CHOICES = [
-        ("NEWCONSTRUCTION", "New Construction"),
-        ("2HANDRESTORE", "Second Hand - Restore"),
-        ("2HANDGOOD", "Second Hand - Good"),
+        ("NEWCONSTRUCTION", "Nueva construcción"),
+        ("2HANDRESTORE", "Segunda mano - Restaurar"),
+        ("2HANDGOOD", "Segunda mano - Bueno"),
     ]
 
     id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
@@ -75,3 +58,12 @@ class Vivienda(models.Model):
 
     def __str__(self):
         return f"Housing {self.id} - Price: {self.precio} ({self.metros_construidos} m2)"
+    
+class Metro(models.Model):
+    id = models.AutoField(primary_key=True)  # ID autoincremental
+    nombre = models.CharField(max_length=255)  # Nombre de la boca de metro
+    latitud = models.FloatField()           # Latitud
+    longitud = models.FloatField()          # Longitud
+
+    def __str__(self):
+        return f"Metro {self.id} - {self.nombre} ({self.latitud}, {self.longitud})"
