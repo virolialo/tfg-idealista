@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Predicción vivienda</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            background: #f4f6fa;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px 32px 24px 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #2a3d66;
+            margin-bottom: 24px;
+        }
+        form {
+            margin-bottom: 0;
+        }
+        #map {
+            height: 350px;
+            width: 100%;
+            margin: 20px 0 24px 0;
+            border-radius: 8px;
+            border: 1px solid #d0d6e2;
+        }
+        button[type="submit"] {
+            background: #2a3d66;
+            color: #fff;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #1a2640;
+        }
+        .prediccion-box {
+            background: #eaf6e9;
+            color: #1a5d1a;
+            border: 1.5px solid #b6e2b6;
+            border-radius: 8px;
+            padding: 18px;
+            margin: 28px 0 0 0;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        .errorlist {
+            color: #b30000;
+            margin-bottom: 12px;
+            list-style: none;
+            padding: 0;
+        }
+        label {
+            font-weight: 500;
+            color: #2a3d66;
+        }
+        input[type="checkbox"] {
+            margin-right: 6px;
+        }
+        .star-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.10);
+            padding: 10px 18px 10px 18px;
+            margin-bottom: 24px;
+            margin-top: 10px;
+            border: 1px solid #e0e6f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .star-rating {
+            direction: rtl;
+            display: flex;
+            justify-content: center;
+            font-size: 2em;
+            margin: 0;
+            gap: 0.1em;
+        }
+        .star-rating input[type="radio"] {
+            display: none;
+        }
+        .star-rating label {
+            color: #ccc;
+            cursor: pointer;
+            transition: color 0.2s;
+            font-size: 1em;
+            position: relative;
+        }
+        .star-rating input[type="radio"]:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #FFD700;
+        }
+        .star-tooltip {
+            display: none;
+            position: fixed;
+            background: #2a3d66;
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 1em;
+            pointer-events: none;
+            z-index: 1000;
+            white-space: nowrap;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.15);
+        }
+        .card-same-width {
+            min-width: 220px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .orientacion-popup {
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            transform: translateX(-50%);
+            margin-top: 8px;
+            background: #fff6e6;
+            color: #b36b00;
+            border: 1.5px solid #ffd699;
+            border-radius: 8px;
+            padding: 7px 18px;
+            font-size: 0.93em;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.10);
+            z-index: 1050; /* Aumenta el z-index para estar por encima del mapa */
+            min-width: 210px;
+            text-align: center;
+            font-weight: 500;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 1s;
+        }
+        .orientacion-popup-arrow {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #fff6e6;
+            z-index: 1060; /* También más alto */
+        }
+        .orientacion-popup.fade-out {
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .orientacion-popup {
+            animation: fadeInOrientacion 0.3s;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 6px solid #e0e6f0;
+            border-top: 6px solid #2a3d66;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        @media (max-width: 700px) {
+            .container { padding: 12px; }
+        }
+        @keyframes fadeInOrientacion {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px);}
+            to { opacity: 1; transform: translateX(-50%) translateY(0);}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Registrar vivienda</h1>
+        <form method="post">
+            {% csrf_token %}
+            
+            <!-- Datos básicos vivienda -->
+            <label style="display:block;text-align:center;margin-bottom:6px;">Datos básicos</label>
+            <div class="star-card" style="flex-direction: column; align-items: stretch; width: 100%; box-sizing: border-box;">
+                <div style="display: flex; gap: 24px; margin-bottom: 12px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                        {{ form.metros_construidos.label_tag }} {{ form.metros_construidos }}
+                    </label>
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                        {{ form.num_hab.label_tag }} {{ form.num_hab }}
+                    </label>
+                </div>
+                <div style="display: flex; gap: 24px; margin-bottom: 12px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                        {{ form.num_wc.label_tag }} {{ form.num_wc }}
+                    </label>
+                    <div style="flex:1; display: flex; flex-direction: row; align-items: center; gap: 12px; margin: 0;">
+                        <div style="display: flex; flex-direction: column; flex: 1;">
+                            {{ form.planta.label_tag }} {{ form.planta }}
+                        </div>
+                        <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; font-weight: 500; color: #2a3d66;">
+                            ¿Última planta?
+                            {{ form.ultima_planta }}
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 24px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                        {{ form.plantas_edicio_catastro.label_tag }} {{ form.plantas_edicio_catastro }}
+                    </label>
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                        {{ form.antiguedad.label_tag }} {{ form.antiguedad }}
+                    </label>
+                </div>
+            </div>
+
+            <!-- Comodidades -->
+            <label style="display:block;text-align:center;margin-bottom:6px;">Comodidades vivienda</label>
+            <div class="star-card">
+                <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.terraza }} Terraza
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.ascensor }} Ascensor
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.aire_acondicionado }} Aire acondicionado
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.parking }} Parking
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.trastero }} Trastero
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.armario_empotrado }} Armario empotrado
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.duplex }} Dúplex
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                        {{ form.estudio }} Estudio
+                    </label>
+                </div>
+            </div>        
+
+            <!-- Orientaciones y Estado -->
+            <div style="display: flex; justify-content: flex-start; align-items: flex-start; gap: 24px; margin-bottom: 24px; position: relative;">
+                <div style="flex: none; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px; width: 100%;">Orientaciones</label>
+                    <div class="star-card" id="orientacion-card" style="margin: 0;">
+                        <div style="display: flex; gap: 24px; align-items: center;">
+                            <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                {{ form.orientacion_norte }} Norte
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                {{ form.orientacion_sur }} Sur
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                {{ form.orientacion_este }} Este
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                {{ form.orientacion_oeste }} Oeste
+                            </label>
+                        </div>
+                    </div>
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "orientación" in error %}
+                                <div class="orientacion-popup" id="orientacion-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div style="flex: none;">
+                    <label style="display:block;text-align:center;margin-bottom:6px; width: 100%;">Estado</label>
+                    <div class="star-card" style="margin: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="margin: 0;">
+                                {{ form.estado }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-start; align-items: flex-start; gap: 24px; margin-bottom: 24px;">
+                <!-- Calidad catastro -->
+                <div style="flex: 1; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px;">Calidad catastro</label>
+                    <div class="star-card card-same-width" id="calidad-catastro-card" style="margin: 0;">
+                        <div class="star-rating" id="star-rating"></div>
+                    </div>
+                    <div id="star-tooltip" class="star-tooltip"></div>
+                    {{ form.calidad_catastro.as_hidden }}
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "calidad" in error %}
+                                <div class="orientacion-popup" id="calidad-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <!-- Coordenadas -->
+                <div style="flex: 1; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px;">Coordenadas</label>
+                    <div class="star-card card-same-width" id="coordenadas-card" style="margin: 0; flex-direction: column; align-items: stretch;">
+                        <div id="coords-placeholder" style="color:#888; text-align:center; font-size:1em; padding:8px 0; display:none;">
+                            Seleccione ubicación
+                        </div>
+                        <div id="coords-fields" style="display:none; flex-direction: column; gap: 8px;">
+                            <span id="lat-value" style="font-size:0.95em;color:#2a3d66;margin-top:2px;">LAT - </span>
+                            <span id="lon-value" style="font-size:0.95em;color:#2a3d66;margin-top:2px;">LON - </span>
+                            {{ form.latitud }}
+                            {{ form.longitud }}
+                        </div>
+                    </div>
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "ubicación" in error or "coordenada" in error or "no pertenece a ningún barrio registrado" in error %}
+                                <div class="orientacion-popup" id="coordenadas-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+</div>
+
+            <div id="map"></div>
+            <button type="submit">Predecir</button>
+        </form>
+        {% if precio_predicho %}
+            <div class="prediccion-box">
+                Precio predicho: {{ precio_predicho|floatformat:0 }} €
+            </div>
+        {% endif %}
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <span id="error-coords-flag" data-error-coords="{% for error in form.non_field_errors %}{% if "ubicación" in error or "coordenada" in error or "no pertenece a ningún barrio registrado" in error %}true{% endif %}{% endfor %}"></span>
+    <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(44,54,80,0.35); z-index:2000; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:18px; padding:36px 48px; box-shadow:0 4px 32px rgba(42,61,102,0.18); display:flex; flex-direction:column; align-items:center;">
+            <div class="spinner" style="margin-bottom:18px;"></div>
+            <span style="font-size:1.2em; color:#2a3d66; font-weight:500;">Calculando el precio final, por favor espere...</span>
+        </div>
+    </div>
+<script>
+    // Leaflet map
+    var map = L.map('map').setView([39.4699, -0.3763], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var marker;
+
+    // Selecciona los inputs de latitud y longitud
+    const latInput = document.getElementById('id_latitud');
+    const lonInput = document.getElementById('id_longitud');
+    const latValue = document.getElementById('lat-value');
+    const lonValue = document.getElementById('lon-value');
+    const coordsPlaceholder = document.getElementById('coords-placeholder');
+    const coordsFields = document.getElementById('coords-fields');
+
+    function updateLatLonDisplay() {
+        const lat = latInput.value;
+        const lon = lonInput.value;
+        const hasCoords = lat && lon;
+        if (coordsPlaceholder && coordsFields) {
+            coordsPlaceholder.style.display = hasCoords ? 'none' : 'block';
+            coordsFields.style.display = hasCoords ? 'flex' : 'none';
+        }
+        if (latValue && lonValue) {
+            latValue.textContent = `LAT (${lat || ''})`;
+            lonValue.textContent = `LON (${lon || ''})`;
+        }
+    }    
+
+    // Inicializa los valores si ya existen
+    updateLatLonDisplay();
+
+    map.on('click', function(e) {
+        var lat = e.latlng.lat;
+        var lng = e.latlng.lng;
+        if (latInput && lonInput) {
+            latInput.value = lat.toFixed(6);
+            lonInput.value = lng.toFixed(6);
+            updateLatLonDisplay();
+        }
+        if (marker) {
+            marker.setLatLng(e.latlng);
+        } else {
+            marker = L.marker(e.latlng).addTo(map);
+        }
+    });
+
+    // Si el usuario edita manualmente los campos, actualiza también la vista
+    if (latInput) latInput.addEventListener('input', updateLatLonDisplay);
+    if (lonInput) lonInput.addEventListener('input', updateLatLonDisplay);
+
+    // Estrellas calidad_catastro con tooltip personalizado
+    const calidadInput = document.getElementById('id_calidad_catastro');
+    const starContainer = document.getElementById('star-rating');
+    const tooltip = document.getElementById('star-tooltip');
+    function getTooltipText(i) {
+        if (i <= 2) return "Muy malo";
+        if (i <= 4) return "Malo";
+        if (i <= 6) return "Normal";
+        if (i <= 8) return "Bueno";
+        return "Muy bueno";
+    }
+    if (calidadInput && starContainer) {
+        starContainer.innerHTML = '';
+        for (let i = 10; i >= 1; i--) {
+            let radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = 'star' + i;
+            radio.name = 'star';
+            radio.value = i;
+            if (parseInt(calidadInput.value) === i) radio.checked = true;
+            radio.onclick = function() {
+                calidadInput.value = i;
+            };
+            let label = document.createElement('label');
+            label.htmlFor = 'star' + i;
+            label.title = i + ' estrellas';
+            label.innerHTML = '&#9733;';
+            // Tooltip personalizado
+            label.addEventListener('mouseenter', function(e) {
+                tooltip.textContent = getTooltipText(i);
+                tooltip.style.display = 'block';
+            });
+            label.addEventListener('mousemove', function(e) {
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY - 10) + 'px';
+            });
+            label.addEventListener('mouseleave', function() {
+                tooltip.style.display = 'none';
+            });
+            starContainer.appendChild(radio);
+            starContainer.appendChild(label);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Orientación
+        const popupOrientacion = document.getElementById('orientacion-popup-error');
+        if (popupOrientacion) {
+            setTimeout(() => {
+                popupOrientacion.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupOrientacion.parentNode) popupOrientacion.parentNode.removeChild(popupOrientacion);
+            }, 4000);
+        }
+        // Calidad catastro
+        const popupCalidad = document.getElementById('calidad-popup-error');
+        if (popupCalidad) {
+            setTimeout(() => {
+                popupCalidad.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupCalidad.parentNode) popupCalidad.parentNode.removeChild(popupCalidad);
+            }, 4000);
+        }
+        // Coordenadas
+        const popupCoords = document.getElementById('coordenadas-popup-error');
+        if (popupCoords) {
+            setTimeout(() => {
+                popupCoords.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupCoords.parentNode) popupCoords.parentNode.removeChild(popupCoords);
+            }, 4000);
+        }
+
+        const latInput = document.getElementById('id_latitud');
+        const lonInput = document.getElementById('id_longitud');
+        const lat = latInput ? latInput.value : '';
+        const lon = lonInput ? lonInput.value : '';
+
+        // Lee el flag de error de coordenadas desde el atributo data-
+        const errorCoordsFlag = document.getElementById('error-coords-flag');
+        const errorCoordenadas = errorCoordsFlag && errorCoordsFlag.getAttribute('data-error-coords') === 'true';
+
+        if (lat && lon && !errorCoordenadas) {
+            // Si hay coordenadas y NO hay error de coordenadas, muestra el marcador
+            if (typeof L !== 'undefined') {
+                if (window.marker) {
+                    window.marker.setLatLng([parseFloat(lat), parseFloat(lon)]);
+                } else {
+                    window.marker = L.marker([parseFloat(lat), parseFloat(lon)]).addTo(map);
+                }
+                map.setView([parseFloat(lat), parseFloat(lon)], map.getZoom());
+            }
+        } else {
+            // Si hay error de coordenadas, elimina el marcador y limpia los campos
+            if (window.marker) {
+                map.removeLayer(window.marker);
+                window.marker = null;
+            }
+            if (latInput) latInput.value = '';
+            if (lonInput) lonInput.value = '';
+            if (typeof updateLatLonDisplay === 'function') updateLatLonDisplay();
+        }
+    });
+
+    // Mostrar overlay de carga al hacer submit si TODO el formulario es válido (HTML5)
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (!this.checkValidity()) {
+            return;
+        }
+        document.getElementById('loading-overlay').style.display = 'flex';
+    });
+
+    // Vaciar el formulario si la página se recarga manualmente o por F5
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || performance.getEntriesByType("navigation")[0].type === "reload") {
+            document.querySelector('form').reset();
+            // Si tienes campos personalizados, también puedes limpiar aquí:
+            updateLatLonDisplay();
+            // Si usas estrellas, puedes limpiar el input oculto:
+            const calidadInput = document.getElementById('id_calidad_catastro');
+            if (calidadInput) calidadInput.value = '';
+        }
+    });
+</script>
+</body>
+</html>
