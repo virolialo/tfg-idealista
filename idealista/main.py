@@ -11,7 +11,7 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
     La funcion empareja archivos de nodos y aristas por el identificador de los grafos,
     para realizar lo siguiente por cada par:
     - Generar el grafo como un objeto de la clase Data de PyTorch Geometric
-    - Buscar los hiperparametros optimos con Optuna
+    - Buscar los hiperparametros optimos con Optuna (incluyendo num_layers)
     - Entrenar el modelo GCN con los hiperparametros optimos
     - Guardar los resultados devueltos con las metricas MSE, MAE y R2
 
@@ -33,21 +33,9 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
     eval_dir.mkdir(parents=True, exist_ok=True)
     output_file = eval_dir / f"model_gcn_evaluation_{edges_name}.txt"
 
-    # Localizacion de pares por ID
     id_pattern = re.compile(r"_(\d+)\.csv$")
 
     def extraer_id(nombre):
-        """
-        La funcion extrae el ID de un nombre de archivo usando 
-        una expresion regular.
-
-        Parametros:
-        nombre (str): Nombre del archivo del cual se extraera el ID.
-        
-        Returns:
-        str: ID extraido del nombre del archivo
-        None: Si no se encuentra un ID valido en el nombre del archivo.
-        """
         m = id_pattern.search(nombre)
         return m.group(1) if m else None
 
@@ -63,7 +51,6 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
         if id_ is not None:
             aristas_files[id_] = f
 
-    # Emparejamiento por pares de nodos y aristas
     ids_comunes = sorted(set(nodos_files.keys()) & set(aristas_files.keys()), key=lambda x: int(x))
     print(f"IDs comunes encontrados: {len(ids_comunes)}")
     with open(output_file, "w", encoding="utf-8") as f:
@@ -73,9 +60,10 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
             try:
                 data = cargar_grafo(str(nodo_path), str(arista_path))
 
-                # Busqueda de hiperparametros optimos con Optuna
+                # Optuna ahora busca también num_layers
                 def objective(trial):
                     hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
+                    num_layers = trial.suggest_int("num_layers", 2, 5)
                     dropout = trial.suggest_float("dropout", 0.0, 0.7)
                     lr = trial.suggest_float("lr", 1e-4, 1e-1, log=True)
                     epochs = trial.suggest_int("epochs", 50, 200)
@@ -85,28 +73,26 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
                         epochs=epochs,
                         lr=lr,
                         hidden_channels=hidden_channels,
+                        num_layers=num_layers,
                         dropout=dropout
                     )
                     return mse if not math.isnan(mse) else float('inf')
 
                 study = optuna.create_study(direction="minimize")
-                study.optimize(objective, n_trials=20, show_progress_bar=False)
+                study.optimize(objective, n_trials=10, show_progress_bar=False)
                 best_params = study.best_params
 
-                # Entrenamiento final con los mejores hiperpararametros
+                # Entrenamiento final con los mejores hiperparámetros
                 result = train_node_regression(
                     data,
                     price_index=price_index,
                     epochs=best_params["epochs"],
                     lr=best_params["lr"],
                     hidden_channels=best_params["hidden_channels"],
+                    num_layers=best_params["num_layers"],
                     dropout=best_params["dropout"]
                 )
-                # Generacion de resultados
-                if (
-                    result is not None and
-                    not any(math.isnan(x) for x in result)
-                ):
+                if result is not None and not any(math.isnan(x) for x in result):
                     mse, mae, r2 = result
                     resultados.append((float(mse), float(mae), float(r2)))
                     f.write(f"Grafo {id_}:\n")
@@ -118,7 +104,6 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
             except Exception as e:
                 print(f"Error con ID {id_}: {e}")
 
-        # Calculo de media de metricas de todos los pares validos
         if resultados:
             mean_mse = sum(r[0] for r in resultados) / len(resultados)
             mean_mae = sum(r[1] for r in resultados) / len(resultados)
@@ -134,7 +119,7 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
     La funcion empareja archivos de nodos y aristas por el identificador de los grafos,
     para realizar lo siguiente por cada par:
     - Generar el grafo como un objeto de la clase Data de PyTorch Geometric
-    - Buscar los hiperparametros optimos con Optuna
+    - Buscar los hiperparametros optimos con Optuna (incluyendo num_layers)
     - Entrenar el modelo HeteroGNN con los hiperparametros optimos
     - Guardar los resultados devueltos con las metricas MSE, MAE y R2
 
@@ -195,9 +180,10 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
             try:
                 data = cargar_grafo(str(nodo_path), str(arista_path1), str(arista_path2))
 
-                # Optuna para hiperparametros por par
+                # Optuna para hiperparametros por par, incluyendo num_layers
                 def objective(trial):
                     hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
+                    num_layers = trial.suggest_int("num_layers", 2, 5)
                     dropout = trial.suggest_float("dropout", 0.0, 0.7)
                     lr = trial.suggest_float("lr", 1e-4, 1e-1, log=True)
                     epochs = trial.suggest_int("epochs", 50, 200)
@@ -207,13 +193,14 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
                         epochs=epochs,
                         lr=lr,
                         hidden_channels=hidden_channels,
+                        num_layers=num_layers,
                         dropout=dropout
                     )
                     mse = result[0] if result is not None else float('inf')
                     return mse if not math.isnan(mse) else float('inf')
 
                 study = optuna.create_study(direction="minimize")
-                study.optimize(objective, n_trials=20, show_progress_bar=False)
+                study.optimize(objective, n_trials=10, show_progress_bar=False)
                 best_params = study.best_params
 
                 # Entrenamiento final con los mejores hiperparametros
@@ -223,6 +210,7 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
                     epochs=best_params["epochs"],
                     lr=best_params["lr"],
                     hidden_channels=best_params["hidden_channels"],
+                    num_layers=best_params["num_layers"],
                     dropout=best_params["dropout"]
                 )
                 # Generacion de resultados
@@ -297,4 +285,13 @@ def crear_resumen_evaluation():
     print(f"Resumen guardado en {resumen_path}")
 
 if __name__ == "__main__":
+
     BASE_DIR = Path(__file__).resolve().parent
+
+    # Rutas concretas para probar la función
+    nodes_dir = BASE_DIR / "data_pipeline" / "graphs" / "nodes"
+    edges_dir1 = BASE_DIR / "data_pipeline" / "graphs" / "edges" / "kdd" / "0050_km"
+    edges_dir2 = BASE_DIR / "data_pipeline" / "graphs" / "edges" / "similarity" / "0990_sim"
+
+    # Llama a la función de evaluación heterogénea
+    evaluar_hetero_por_pares(nodes_dir, edges_dir1, edges_dir2)
