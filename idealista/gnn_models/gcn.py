@@ -6,68 +6,64 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 class GCN(torch.nn.Module):
     """
     Modelo de Red Neuronal Convolucional de Grafos (GCN) para regresion de nodos.
-    Este modelo toma caracteristicas de nodos y conexiones de un grafo y predice un valor continuo para cada nodo.
+    Permite configurar el número de capas ocultas como hiperparámetro.
     """
-    def __init__(self, in_channels, hidden_channels, dropout=0.5):
+    def __init__(self, in_channels, hidden_channels, num_layers=2, dropout=0.5):
         """
-        La funcion inicializa el modelo GCN con dos capas de convolucion y una tasa de dropout.
+        Inicializa el modelo GCN con un número variable de capas de convolución y una tasa de dropout.
 
-        Parametros:
-        in_channels: Numero de caracteristicas de entrada por nodo
-        hidden_channels: Numero de canales ocultos en la capa GCN
-        dropout: Tasa de dropout para la regularizacion
-
-        Returns:
-        Ninguno
+        Parámetros:
+        in_channels: Número de características de entrada por nodo
+        hidden_channels: Número de canales ocultos en las capas GCN
+        num_layers: Número total de capas GCN (mínimo 2)
+        dropout: Tasa de dropout para la regularización
         """
         super(GCN, self).__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, 1)
         self.dropout = dropout
+        self.num_layers = num_layers
+
+        self.convs = torch.nn.ModuleList()
+        # Primera capa
+        self.convs.append(GCNConv(in_channels, hidden_channels))
+        # Capas ocultas intermedias (si las hay)
+        for _ in range(num_layers - 2):
+            self.convs.append(GCNConv(hidden_channels, hidden_channels))
+        # Última capa
+        self.convs.append(GCNConv(hidden_channels, 1))
 
     def forward(self, data):
-        """
-        La funcion de avance del modelo GCN.
-        Toma un objeto de datos que contiene las caracteristicas de los nodos y las conexiones del grafo,
-        y devuelve las predicciones de regresion para cada nodo.
-
-        Parametros:
-        data: Objeto de datos de PyTorch Geometric que contiene las caracteristicas de los nodos y las conexiones.
-
-        Returns:
-        Tensor: Predicciones de regresion para cada nodo en el grafo.
-        """
         x, edge_index = data.x, data.edge_index
         edge_weight = data.edge_attr.squeeze() if data.edge_attr is not None else None
-        x = self.conv1(x, edge_index, edge_weight=edge_weight)
-        x = F.relu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.conv2(x, edge_index, edge_weight=edge_weight)
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index, edge_weight=edge_weight)
+            if i < len(self.convs) - 1:
+                x = F.relu(x)
+                x = F.dropout(x, p=self.dropout, training=self.training)
         return x.squeeze()
 
-def train_node_regression(data, price_index=0, epochs=100, lr=0.01, hidden_channels=32, dropout=0.5):
+def train_node_regression(data, price_index=0, epochs=100, lr=0.01, hidden_channels=32, num_layers=2, dropout=0.5):
     """
-    La funcion entrena un modelo GCN para la regresion de nodos en un grafo.
+    Entrena un modelo GCN para la regresión de nodos en un grafo, permitiendo configurar el número de capas.
 
-    Parametros:
-    data: Objeto de datos de PyTorch Geometric que contiene las caracteristicas de los nodos y las conexiones.
-    price_index: Indice de la caracteristica del precio en los nodos.
-    epochs: Numero de epocas para entrenar el modelo.
+    Parámetros:
+    data: Objeto de datos de PyTorch Geometric que contiene las características de los nodos y las conexiones.
+    price_index: Índice de la característica del precio en los nodos.
+    epochs: Número de épocas para entrenar el modelo.
     lr: Tasa de aprendizaje para el optimizador.
-    hidden_channels: Numero de canales ocultos en la capa GCN.
-    dropout: Tasa de dropout para la regularizacion.
+    hidden_channels: Número de canales ocultos en las capas GCN.
+    num_layers: Número total de capas GCN (mínimo 2).
+    dropout: Tasa de dropout para la regularización.
 
     Returns:
-    mse: Error cuadratico medio del modelo en el conjunto de prueba.
+    mse: Error cuadrático medio del modelo en el conjunto de prueba.
     mae: Error absoluto medio del modelo en el conjunto de prueba.
-    r2: Coeficiente de determinacion R^2 del modelo en el conjunto de prueba.
+    r2: Coeficiente de determinación R^2 del modelo en el conjunto de prueba.
     """
-    # Modelos con menos de 10 nodos se descartan
     if data.num_nodes < 10:
         return float('nan'), float('nan'), float('nan')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = GCN(data.num_features, hidden_channels, dropout).to(device)
+    model = GCN(data.num_features, hidden_channels, num_layers, dropout).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     data = data.to(device)
 
@@ -87,7 +83,7 @@ def train_node_regression(data, price_index=0, epochs=100, lr=0.01, hidden_chann
         loss.backward()
         optimizer.step()
 
-    # Evaluacion
+    # Evaluación
     model.eval()
     with torch.no_grad():
         out = model(data)
