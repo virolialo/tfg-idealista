@@ -25,7 +25,6 @@ def prediccion_vivienda_view(request):
 
             # Se procesan los datos de la vivienda
             resultado = preparar_datos_vivienda_form(datos)
-            print(f"Datos procesados de la vivienda: {resultado}")
 
             # Se generan atributos generados con campos del formulario
             distancia_metro, distancia_centro, distancia_blasco = calcular_distancias(resultado['latitud'], resultado['longitud'])
@@ -35,7 +34,7 @@ def prediccion_vivienda_view(request):
             barrio = obtener_barrio_desde_geojson(resultado['latitud'], resultado['longitud'])
             resultados, scaler_features = procesar_viviendas_barrio(barrio)
             grafo = crear_grafo_vecindad(resultados)
-            precios_reales = np.array([v['precio'] for v in resultados]).reshape(-1, 1)
+            precios_reales = np.array([v['precio_m2'] for v in resultados]).reshape(-1, 1)
             modelo, scaler_precio = entrenar_gnn_optuna(grafo, precios_reales)
 
             # Prepara los features en el orden correcto
@@ -45,7 +44,7 @@ def prediccion_vivienda_view(request):
             vivienda_coord = [features_ordenados['latitud'], features_ordenados['longitud']]
 
             # Prepara la lista de features para el modelo (excluyendo id, precio, latitud, longitud, barrio)
-            campos_excluir = ('id', 'precio', 'latitud', 'longitud', 'barrio')
+            campos_excluir = ('id', 'precio_m2', 'latitud', 'longitud', 'barrio')
             vivienda_features = [features_ordenados[k] for k in features_ordenados if k not in campos_excluir]
 
             # Realiza la predicción
@@ -60,7 +59,10 @@ def prediccion_vivienda_view(request):
 
             if precio_predicho is not None:
                 # Redondea a la centena más cercana inferior (por ejemplo, 28540 -> 28500)
-                precio_predicho = int(precio_predicho // 100 * 100)
+                print(f"Precio predicho: {precio_predicho}")
+                metros = features_ordenados['metros_construidos']
+                precio_total = precio_predicho * metros
+                precio_predicho = int(precio_total // 100 * 100)
     else:
         form = ViviendaPrediccionForm()
 

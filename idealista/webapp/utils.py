@@ -13,6 +13,14 @@ import optuna
 import random
 import string
 
+FEATURES_ORDER = [
+    'metros_construidos', 'num_hab', 'num_wc', 'terraza', 'ascensor', 'aire_acondicionado', 'parking',
+    'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste', 'trastero',
+    'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta',
+    'calidad_catastro', 'tipo_1', 'tipo_2', 'tipo_3', 'distancia_centro', 'distancia_metro',
+    'distancia_blasco', 'antiguedad'
+]
+
 def obtener_features_ordenados(resultado, distancia_metro, distancia_centro, distancia_blasco, identificador):
     """
     Devuelve una lista de features ordenados según el orden requerido para la predicción.
@@ -29,7 +37,7 @@ def obtener_features_ordenados(resultado, distancia_metro, distancia_centro, dis
 
     vivienda_dict = {
         'id': identificador,
-        'precio': None,  # El precio es el que se va a predecir
+        'precio_m2': None,  # El precio es el que se va a predecir
         'metros_construidos': resultado.get('metros_construidos'),
         'num_hab': resultado.get('num_hab'),
         'num_wc': resultado.get('num_wc'),
@@ -105,7 +113,7 @@ def preparar_datos_vivienda_form(data):
     # Elimina el campo 'estado' si existe
     if 'estado' in result:
         del result['estado']
-
+    print(result)
     return result
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -182,7 +190,7 @@ def procesar_viviendas_barrio(barriada):
     """
     # Orden de los atributos
     ordered_fields = [
-        'id', 'precio', 'metros_construidos', 'num_hab', 'num_wc',
+        'id', 'precio_m2', 'metros_construidos', 'num_hab', 'num_wc',
         'terraza', 'ascensor', 'aire_acondicionado', 'parking',
         'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste',
         'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta',
@@ -224,7 +232,7 @@ def procesar_viviendas_barrio(barriada):
         temp = {}
         # id, precio, latitud, longitud, barrio
         temp['id'] = vivienda.id
-        temp['precio'] = vivienda.precio
+        temp['precio_m2'] = vivienda.precio_m2
         temp['latitud'] = vivienda.latitud
         temp['longitud'] = vivienda.longitud
         temp['barrio'] = vivienda.barrio.id if hasattr(vivienda.barrio, 'id') else vivienda.barrio
@@ -264,11 +272,11 @@ def crear_grafo_vecindad(resultados):
     features = []
     for v in resultados:
         coords.append((v['latitud'], v['longitud']))
-        # Excluye id, precio, latitud, longitud, barrio de las features
-        feat = [v[k] for k in v if k not in ('id', 'precio', 'latitud', 'longitud', 'barrio')]
+        feat = [v[k] for k in FEATURES_ORDER]
         features.append(feat)
     X = np.array(features, dtype=np.float32)
     num_nodes = len(resultados)
+    print(features[0])
 
     # Crear aristas según el radio
     edge_index = []
@@ -305,30 +313,24 @@ def crear_grafo_vecindad(resultados):
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     print(f"Creado grafo con {num_nodes} nodos y {edge_index.size(1)} aristas.")
     return data
-
-def obtener_hiperparametros_barriada(barriada):
-    """
-    Dado un objeto Barriada, devuelve el objeto Hiperparametros relacionado.
-    Si no existe, devuelve None.
-    """
-    try:
-        return barriada.hiperparametros
-    except Exception:
-        return None
     
 class GCNRegressor(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, dropout):
+    def __init__(self, in_channels, hidden_channels, num_layers, dropout):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, 1)
+        self.convs = torch.nn.ModuleList()
+        self.convs.append(GCNConv(in_channels, hidden_channels))
+        for _ in range(num_layers - 2):
+            self.convs.append(GCNConv(hidden_channels, hidden_channels))
+        self.convs.append(GCNConv(hidden_channels, 1))
         self.dropout = dropout
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr.squeeze()
-        x = self.conv1(x, edge_index, edge_weight)
-        x = F.relu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.conv2(x, edge_index, edge_weight)
+        for conv in self.convs[:-1]:
+            x = conv(x, edge_index, edge_weight)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.convs[-1](x, edge_index, edge_weight)
         return F.relu(x).squeeze()
 
 def entrenar_gnn_optuna(data, precios_reales):
@@ -337,7 +339,6 @@ def entrenar_gnn_optuna(data, precios_reales):
     Devuelve el mejor modelo entrenado, el scaler de precios y los hiperparámetros óptimos.
     El precio SE normaliza para el entrenamiento y se desnormaliza al mostrar métricas y predecir.
     """
-    # Normaliza el precio usando el vector de precios reales (NO data.x)
     scaler_precio = MinMaxScaler()
     precios_norm = scaler_precio.fit_transform(precios_reales)
     precios_tensor = torch.tensor(precios_norm.squeeze(), dtype=torch.float32)
@@ -347,11 +348,12 @@ def entrenar_gnn_optuna(data, precios_reales):
 
     def objective(trial):
         hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
+        num_layers = trial.suggest_int("num_layers", 2, 5)
         dropout = trial.suggest_float("dropout", 0.0, 0.5)
         lr = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
         epochs = trial.suggest_int("epochs", 100, 400)
 
-        model = GCNRegressor(in_channels, hidden_channels, dropout)
+        model = GCNRegressor(in_channels, hidden_channels, num_layers, dropout)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         criterion = torch.nn.MSELoss()
 
@@ -380,6 +382,7 @@ def entrenar_gnn_optuna(data, precios_reales):
     model = GCNRegressor(
         in_channels,
         best_params["hidden_channels"],
+        best_params["num_layers"],
         best_params["dropout"]
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=best_params["lr"])
@@ -404,16 +407,22 @@ def entrenar_gnn_optuna(data, precios_reales):
         ss_res = ((y_true - pred) ** 2).sum()
         ss_tot = ((y_true - y_true.mean()) ** 2).sum()
         r2 = 1 - ss_res / ss_tot if ss_tot != 0 else float('nan')
+    print(f"MSE: {mse}, MAE: {mae}, R2: {r2}")
 
+    # Devuelve también los hiperparámetros óptimos por si los necesitas
     return model, scaler_precio
 
 def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features):
+
     """
     Predice el precio de una vivienda a partir de sus atributos integrándola en el grafo.
     Normaliza los features numéricos de la vivienda con el scaler de procesar_viviendas_barrio.
     El precio predicho se desnormaliza antes de devolverlo.
     """
     radio_km = 0.05
+
+    if isinstance(vivienda_features, dict):
+        vivienda_features = [vivienda_features[k] for k in FEATURES_ORDER]
 
     # Campos numéricos a normalizar (fijos)
     num_fields = [
@@ -425,22 +434,6 @@ def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, sca
     vivienda_features = np.array(vivienda_features, dtype=np.float32)
 
     # Normaliza los features numéricos
-    # Suponemos que vivienda_features está en el mismo orden que las keys del grafo
-    # y que los nombres de los campos están disponibles en la variable feature_keys
-    # Si no tienes feature_keys, deberías pasarlos o reconstruirlos igual que al crear el grafo
-    # Aquí se asume que el orden es el mismo que en crear_grafo_vecindad
-    # Por seguridad, puedes pedir feature_keys como argumento si lo necesitas
-
-    # Si tienes los nombres de los features:
-    # feature_keys = [...]
-    # for i, k in enumerate(feature_keys):
-    #     if k in num_fields:
-    #         idx = num_fields.index(k)
-    #         vivienda_features[i] = scaler_features.transform([[vivienda_features[j] for j, key in enumerate(feature_keys) if key in num_fields]])[0][idx]
-
-    # Si no tienes los nombres, normaliza por posición suponiendo que el orden es correcto:
-    # (esto es seguro si usas el mismo orden en procesar_viviendas_barrio y en la predicción)
-    # Busca los índices de los campos numéricos en vivienda_features
     feature_keys = [k for k in data.x[0]._fields] if hasattr(data.x[0], '_fields') else None
     if feature_keys:
         for i, k in enumerate(feature_keys):
@@ -497,6 +490,7 @@ def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, sca
     with torch.no_grad():
         pred_norm = model(data_new)[-1].cpu().numpy().reshape(1, -1)
         pred_real = scaler_precio.inverse_transform(pred_norm)[0, 0]
+        pred_real = float(np.clip(pred_real, 480, 9500))
     return pred_real
 
 def generar_id_vivienda_unico():
