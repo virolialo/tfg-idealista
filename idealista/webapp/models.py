@@ -7,6 +7,22 @@ class Barriada(models.Model):
     def __str__(self):
         return f"Barriada {self.id} - Name: {self.nombre}"
 
+class Hiperparametro(models.Model):
+    barrio = models.ForeignKey(
+        Barriada,
+        to_field='id',
+        on_delete=models.CASCADE,
+        related_name='hiperparametros'
+    )
+    hidden_channels = models.IntegerField()
+    num_layers = models.IntegerField()
+    dropout = models.FloatField()
+    lr = models.FloatField()
+    epochs = models.IntegerField()
+
+    def __str__(self):
+        return f"Hiperparametro {self.barrio.nombre} ({self.barrio.id})"
+
 class Vivienda(models.Model):
     STATUS_CHOICES = [
         ("NEWCONSTRUCTION", "Nueva construcción"),

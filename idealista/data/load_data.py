@@ -3,15 +3,13 @@ from pathlib import Path
 import sys
 import os
 import django
-
-
 # Configuracion del entorno Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'idealista.settings')
 django.setup()
 
-from webapp.models import Barriada, Vivienda
+from webapp.models import Barriada, Vivienda, Metro, Hiperparametro
 
 def cargar_barrios_desde_csv(ruta_csv):
     """
@@ -36,6 +34,39 @@ def cargar_barrios_desde_csv(ruta_csv):
             barrios += 1
 
         print(f"Se han creado {barrios} barrios nuevos.")
+
+def cargar_hiperparametros_desde_csv(ruta_csv):
+    """
+    Carga los hiperparámetros de un archivo CSV y los guarda en la base de datos,
+    asociando cada conjunto de hiperparámetros al barrio correspondiente.
+
+    Parametros:
+    ruta_csv (str): Ruta al archivo CSV con los campos: ID,hidden_channels,num_layers,dropout,lr,epochs
+
+    Returns:
+    Ninguno
+    """
+    with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
+        lector = csv.DictReader(archivo)
+        hiperparametros_creados = 0
+        for fila in lector:
+            try:
+                barrio = Barriada.objects.get(id=fila["ID"])
+                hiper = Hiperparametro(
+                    barrio=barrio,
+                    hidden_channels=int(fila["HIDDENCHANELS"]),
+                    num_layers=int(fila["LAYERS"]),
+                    dropout=float(fila["DROPOUT"]),
+                    lr=float(fila["LR"]),
+                    epochs=int(fila["EPOCHS"])
+                )
+                hiper.save()
+                hiperparametros_creados += 1
+            except Barriada.DoesNotExist:
+                print(f"Barrio con ID {fila['ID']} no encontrado. Saltando fila.")
+            except Exception as e:
+                print(f"Error al guardar hiperparámetro para barrio {fila['ID']}: {e}")
+        print(f"Se han cargado {hiperparametros_creados} hiperparámetros en la base de datos.")
 
 def cargar_viviendas_desde_csv(ruta_csv):
     """
@@ -107,8 +138,6 @@ def cargar_viviendas_desde_csv(ruta_csv):
     except Exception as e:
         print(f"Ocurrio un error al cargar los datos: {e}")
 
-from webapp.models import Metro
-
 def cargar_metros_desde_csv(ruta_csv):
     """
     Carga los datos de bocas de metro desde un archivo CSV y los guarda en la base de datos.
@@ -143,9 +172,10 @@ def cargar_metros_desde_csv(ruta_csv):
 if __name__ == "__main__":
     datos_barrios = BASE_DIR / "data" / "db" / "barris-barrios_data.csv"
     datos_viviendas = BASE_DIR / "data" /  "db" / "Valencia_Sale_data.csv"
-    datos_hiperparametros = BASE_DIR / "data" / "db" / "model_gcn_parameters.csv"
+    datos_hiperparametros = BASE_DIR / "data" / "db" / "hiperparametros.csv"
     datos_metro = BASE_DIR / "data" / "db" / "bocas_metro.csv"
     cargar_barrios_desde_csv(datos_barrios)
+    cargar_hiperparametros_desde_csv(datos_hiperparametros)
     cargar_viviendas_desde_csv(datos_viviendas)
     cargar_metros_desde_csv(datos_metro)
     print("Carga de datos completada.")
