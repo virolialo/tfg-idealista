@@ -14,10 +14,15 @@ def exportar_nodos(csv_entrada):
     Guarda los nodos en archivos CSV separados por barrio en el directorio graphs/nodes.
 
     Parametros:
-    csv_entrada (str): Ruta al archivo CSV de entrada que contiene las viviendas
+    csv_entrada (str): Ruta al archivo CSV de entrada que contiene las viviendas.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si el archivo CSV de entrada no existe.
+    KeyError: Si falta alguna de las columnas requeridas en el archivo CSV.
+    Exception: Si ocurre un error al escribir los archivos de nodos.
     """
     node_cols = [
         "UNITPRICE", "CONSTRUCTEDAREA", "ROOMNUMBER", "BATHNUMBER",
@@ -53,10 +58,15 @@ def exportar_aristas_barrio(nodos):
     al mismo barrio, considerando que son vecinos.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de nodos
+    nodos (str): Ruta al archivo CSV de nodos.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si el archivo de nodos no existe.
+    KeyError: Si la columna 'NEIGHBOURID' no esta presente en el archivo de nodos.
+    Exception: Si ocurre un error al escribir los archivos de aristas.
     """
     # Lectura del CSV
     df = pd.read_csv(nodos)
@@ -91,11 +101,16 @@ def exportar_aristas_vecindad(nodos, radio_km):
     Si un nodo no tiene vecinos dentro del radio, se conecta al nodo mas cercano.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de nodos
-    radio_km (float): Radio en kilometros para considerar vecinos
+    nodos (str): Ruta al archivo CSV de nodos.
+    radio_km (float): Radio en kilometros para considerar vecinos.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si el archivo de nodos no existe.
+    KeyError: Si faltan las columnas 'LATITUDE', 'LONGITUDE' o 'NEIGHBOURID' en el archivo de nodos.
+    Exception: Si ocurre un error al escribir los archivos de aristas.
     """
     # Lectura del CSV
     df = pd.read_csv(nodos)
@@ -161,11 +176,16 @@ def exportar_aristas_similitud_caracteristicas(nodos, threshold):
     Si un nodo no tiene vecinos similares, se conecta al nodo mas similar.
 
     Parametros:
-    nodos (str): Ruta al archivo CSV de nodos
-    threshold (float): Umbral de similitud entre 0 y 1
+    nodos (str): Ruta al archivo CSV de nodos.
+    threshold (float): Umbral de similitud entre 0 y 1.
     
     Returns:
     Ninguno
+
+    Raises:
+    FileNotFoundError: Si el archivo de nodos no existe.
+    KeyError: Si faltan las columnas requeridas para calcular la similitud o la columna 'NEIGHBOURID'.
+    Exception: Si ocurre un error al escribir los archivos de aristas.
     """
     df = pd.read_csv(nodos)
 
@@ -251,6 +271,11 @@ def cargar_grafo(nodos, aristas, aristas_extra=None):
 
     Returns:
     data (torch_geometric.data.Data o HeteroData): Grafo homogeneo o heterogeneo.
+
+    Raises:
+    FileNotFoundError: Si alguno de los archivos CSV no existe.
+    KeyError: Si faltan columnas requeridas en los archivos de nodos o aristas (por ejemplo, 'NODEID', 'source', 'target').
+    Exception: Si ocurre un error al convertir los datos a tensores o al construir el grafo.
     """
     # Lectura de los CSV
     nodes_df = pd.read_csv(nodos)
@@ -309,6 +334,10 @@ def mostrar_grafo(data):
 
     Returns:
     Ninguno
+
+    Raises:
+    ValueError: Si el objeto data no es de tipo Data ni HeteroData.
+    Exception: Si ocurre un error al procesar o visualizar el grafo.
     """
     if isinstance(data, Data):
         # Grafo homogeneo

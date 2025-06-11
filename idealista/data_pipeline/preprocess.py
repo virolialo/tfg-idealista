@@ -16,7 +16,7 @@ def procesar_csv_viviendas(csv_entrada):
     Luego, escribe el contenido en un nuevo archivo CSV de salida en la carpeta /processed_data.
 
     Parametros:
-    csv_entrada (str): Ruta al archivo CSV de entrada
+    csv_entrada (str): Ruta al archivo CSV de entrada.
 
     Returns:
     Ninguno
@@ -27,10 +27,14 @@ def procesar_csv_viviendas(csv_entrada):
         Convierte el CSV en una lista de diccionarios, donde cada diccionario representa una fila del CSV.
 
         Parametros:
-        ruta_archivo (str): Ruta al archivo CSV
+        ruta_archivo (str): Ruta al archivo CSV.
 
         Returns:
-        list: Lista de diccionarios con los datos del archivo CSV
+        list: Lista de diccionarios con los datos del archivo CSV.
+
+        Raises:
+        FileNotFoundError: Si el archivo no existe.
+        Exception: Si ocurre un error al leer el archivo.
         """
         datos = []
         try:
@@ -54,12 +58,15 @@ def procesar_csv_viviendas(csv_entrada):
         El nombre de salida sera el del archivo de entrada + '_processed.csv', siempre en /processed_data.
 
         Parametros:
-        datos (list): Lista de diccionarios con los datos a escribir
-        encabezados (list): Lista de encabezados para el archivo CSV
-        csv_entrada (str): Ruta al archivo CSV de entrada
+        datos (list): Lista de diccionarios con los datos a escribir.
+        encabezados (list): Lista de encabezados para el archivo CSV.
+        csv_entrada (str): Ruta al archivo CSV de entrada.
 
         Returns:
-        Ninguno
+        Ninguno.
+
+        Raises:
+        Exception: Si ocurre un error al escribir el archivo.
         """
         try:
             base_dir = Path(__file__).resolve().parent
@@ -90,19 +97,22 @@ def procesar_csv_viviendas(csv_entrada):
 def procesar_csv_barrios(ruta_csv):
     """
     La funcion procesa un archivo CSV de barrios donde:
-    - Elimina columnas innecesarias
-    - Renombra columnas para estandarizar
-    - Asegura que la columna NEIGHBOURID sea unica y numerica
+    - Elimina columnas innecesarias.
+    - Renombra columnas para estandarizar.
+    - Asegura que la columna NEIGHBOURID sea unica y numerica.
 
     Genera dos archivos de salida:
-    - Un CSV simple para Django con las columnas NEIGHBOURID y NEIGHBOURNAME
-    - Un GeoJSON con la geometria de los barrios
+    - Un CSV simple para Django con las columnas NEIGHBOURID y NEIGHBOURNAME.
+    - Un GeoJSON con la geometria de los barrios.
 
     Parametros:
-    ruta_csv (str): Ruta al archivo CSV de barrios
+    ruta_csv (str): Ruta al archivo CSV de barrios.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    Exception: Si ocurre un error durante el procesamiento del CSV.
     """
     try:
         base_dir = Path(__file__).resolve().parent
@@ -139,11 +149,14 @@ def procesar_csv_barrios(ruta_csv):
             La funcion convierte una cadena GeoJSON a un objeto shapely.
 
             Parametros:
-            geojson_str (str): Cadena GeoJSON que representa la geometria
+            geojson_str (str): Cadena GeoJSON que representa la geometria.
 
             Returns:
-            shapely.geometry: Objeto shapely representando la geometria
-            None: Si la conversion falla
+            shapely.geometry: Objeto shapely representando la geometria.
+            None: Si la conversion falla.
+
+            Raises:
+            Exception: Si ocurre un error al convertir la cadena GeoJSON.
             """
             try:
                 geojson = json.loads(geojson_str)
@@ -167,21 +180,25 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
     preparar los datos para su uso en modelos de machine learning.
 
     Genera los siguientes archivos de salida:
-    - Un CSV con los datos de viviendas preprocesados
-    - Un CSV con los datos de viviendas sin normalizar
+    - Un CSV con los datos de viviendas preprocesados.
+    - Un CSV con los datos de viviendas sin normalizar.
 
     Modifica/elimina los siguientes archivos:
-    - Un GeoJSON con los barrios que tienen viviendas asociadas
-    - Un CSV con los barrios que tienen viviendas asociadas
-    - Elimina el archivo de entrada de viviendas tras el procesamiento
+    - Un GeoJSON con los barrios que tienen viviendas asociadas.
+    - Un CSV con los barrios que tienen viviendas asociadas.
+    - Elimina el archivo de entrada de viviendas tras el procesamiento.
 
     Parametros:
-    ruta_viviendas (str): Ruta al archivo CSV de viviendas
-    ruta_barrios (str): Ruta al archivo GeoJSON de barrios
+    ruta_viviendas (str): Ruta al archivo CSV de viviendas.
+    ruta_barrios (str): Ruta al archivo GeoJSON de barrios.
 
     Returns:
-    pd.DataFrame: DataFrame con los datos de viviendas preprocesados
-    None: Si ocurre un error durante el procesamiento
+    pd.DataFrame: DataFrame con los datos de viviendas preprocesados.
+    None: Si ocurre un error durante el procesamiento.
+
+    Raises:
+    FileNotFoundError: Si el archivo de viviendas no se encuentra.
+    Exception: Si ocurre un error al leer o procesar los archivos.
     """
     columnas_a_eliminar = [
         "PERIOD", "PRICE", "AMENITYID", "ISPARKINGSPACEINCLUDEDINPRICE",
@@ -233,10 +250,13 @@ def preprocesamiento(ruta_viviendas, ruta_barrios):
             Si no encuentra un barrio, devuelve 'NA'.
 
             Parametros:
-            row (pd.Series): Fila del DataFrame con las coordenadas de la vivienda
+            row (pd.Series): Fila del DataFrame con las coordenadas de la vivienda.
 
             Returns:
-            pd.Series: Serie con el NEIGHBOURID del barrio encontrado o 'NA'
+            pd.Series: Serie con el NEIGHBOURID del barrio encontrado o 'NA'.
+
+            Raises:
+            Exception: Si ocurre un error al crear el punto o buscar el barrio.
             """
             try:
                 point = shapely.geometry.Point(float(row['LONGITUDE']), float(row['LATITUDE']))

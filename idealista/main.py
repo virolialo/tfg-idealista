@@ -3,17 +3,21 @@ from pathlib import Path
 from data_pipeline.graph_builder import cargar_grafo
 from gnn_models.heterognn import train_node_regression_hetero
 from gnn_models.gcn import train_node_regression
+from gnn_models.gcn import GCN
+from gnn_models.heterognn import HeteroGNN
 import math
 import optuna
+import torch
 
 def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
     """
     La funcion empareja archivos de nodos y aristas por el identificador de los grafos,
     para realizar lo siguiente por cada par:
-    - Generar el grafo como un objeto de la clase Data de PyTorch Geometric
-    - Buscar los hiperparametros optimos con Optuna (incluyendo num_layers)
-    - Entrenar el modelo GCN con los hiperparametros optimos
-    - Guardar los resultados devueltos con las metricas MSE, MAE y R2
+    - Generar el grafo como un objeto de la clase Data de PyTorch Geometric.
+    - Buscar los hiperparametros optimos de entrenamiento con Optuna.
+    - Entrenar el modelo GCN con los hiperparametros devueltos.
+    - Evaluar el modelo y guardar los resultados devueltos con las metricas MSE, MAE y R2.
+    - Guardar los pesos del modelo entrenado en un archivo .pt por cada grafo.
 
     Parametros:
     nodos_dir (str): Directorio donde se encuentran los archivos de nodos.
@@ -21,7 +25,14 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
     price_index (int): Indice de la columna de precios en los nodos, por defecto 0.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si alguno de los archivos de nodos o aristas no existe.
+    KeyError: Si faltan columnas requeridas en los archivos de nodos o aristas.
+    ValueError: Si los datos de entrada no cumplen los requisitos esperados (por ejemplo, dimensiones incompatibles).
+    RuntimeError: Si ocurre un error durante el entrenamiento o evaluación del modelo (por ejemplo, problemas de CUDA o PyTorch).
+    Exception: Si ocurre cualquier otro error durante la carga, entrenamiento, evaluación o guardado de modelos y resultados.
     """
     nodos_dir = Path(nodos_dir) 
     aristas_dir = Path(aristas_dir)
@@ -32,9 +43,12 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
     eval_dir = Path(__file__).resolve().parent / "evaluation" / "gcn"
     eval_dir.mkdir(parents=True, exist_ok=True)
     output_file = eval_dir / f"model_gcn_evaluation_{edges_name}.txt"
+    pesos_dir = eval_dir / "pesos"
+    pesos_dir.mkdir(parents=True, exist_ok=True)
 
     id_pattern = re.compile(r"_(\d+)\.csv$")
 
+    # Obtencion de pares de nodos y aristas
     def extraer_id(nombre):
         m = id_pattern.search(nombre)
         return m.group(1) if m else None
@@ -60,7 +74,7 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
             try:
                 data = cargar_grafo(str(nodo_path), str(arista_path))
 
-                # Optuna ahora busca también num_layers
+                # Busqueda de hiperparametros optimos con Optuna
                 def objective(trial):
                     hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
                     num_layers = trial.suggest_int("num_layers", 2, 5)
@@ -82,7 +96,7 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
                 study.optimize(objective, n_trials=10, show_progress_bar=False)
                 best_params = study.best_params
 
-                # Entrenamiento final con los mejores hiperparámetros
+                # Entrenamiento por medio de los mejores hiperparametros
                 result = train_node_regression(
                     data,
                     price_index=price_index,
@@ -95,6 +109,34 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
                 if result is not None and not any(math.isnan(x) for x in result):
                     mse, mae, r2 = result
                     resultados.append((float(mse), float(mae), float(r2)))
+                    # Entrena el modelo final para guardar los pesos
+                    model = None
+                    try:
+                        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                        model = GCN(
+                            data.num_features,
+                            best_params["hidden_channels"],
+                            best_params["num_layers"],
+                            best_params["dropout"]
+                        ).to(device)
+                        optimizer = torch.optim.Adam(model.parameters(), lr=best_params["lr"])
+                        data_device = data.to(device)
+                        y = data_device.x[:, price_index]
+                        idx = torch.randperm(data_device.num_nodes)
+                        split = int(0.8 * data_device.num_nodes)
+                        train_idx = idx[:split]
+                        for epoch in range(best_params["epochs"]):
+                            model.train()
+                            optimizer.zero_grad()
+                            out = model(data_device)
+                            loss = torch.nn.functional.mse_loss(out[train_idx], y[train_idx])
+                            loss.backward()
+                            optimizer.step()
+                        # Pesos del entrenamiento
+                        pesos_path = pesos_dir / f"pesos_gcn_{id_}.pt"
+                        torch.save(model.state_dict(), pesos_path)
+                    except Exception as e:
+                        print(f"Error guardando pesos para ID {id_}: {e}")
                     f.write(f"Grafo {id_}:\n")
                     f.write(f"Parametros usados: {best_params}\n")
                     f.write(f"Metricas: MSE={mse:.4f}, MAE={mae:.4f}, R2={r2:.4f}\n\n")
@@ -104,6 +146,7 @@ def evaluar_gcn_por_pares(nodos_dir, aristas_dir, price_index=0):
             except Exception as e:
                 print(f"Error con ID {id_}: {e}")
 
+        # Calculo de media de metricas de todos los pares validos
         if resultados:
             mean_mse = sum(r[0] for r in resultados) / len(resultados)
             mean_mae = sum(r[1] for r in resultados) / len(resultados)
@@ -118,10 +161,11 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
     """
     La funcion empareja archivos de nodos y aristas por el identificador de los grafos,
     para realizar lo siguiente por cada par:
-    - Generar el grafo como un objeto de la clase Data de PyTorch Geometric
-    - Buscar los hiperparametros optimos con Optuna (incluyendo num_layers)
-    - Entrenar el modelo HeteroGNN con los hiperparametros optimos
-    - Guardar los resultados devueltos con las metricas MSE, MAE y R2
+    - Generar el grafo como un objeto de la clase Data de PyTorch Geometric.
+    - Buscar los hiperparametros optimos con Optuna.
+    - Entrenar el modelo HeteroGNN con los hiperparametros optimos.
+    - Guardar los resultados devueltos con las metricas MSE, MAE y R2.
+    - Guardar los pesos del modelo entrenado en un archivo .pt por cada grafo.
 
     Parametros:
     nodos_dir (str): Directorio donde se encuentran los archivos de nodos.
@@ -129,7 +173,14 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
     price_index (int): Indice de la columna de precios en los nodos, por defecto 0.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si alguno de los archivos de nodos o aristas no existe.
+    KeyError: Si faltan columnas requeridas en los archivos de nodos o aristas.
+    ValueError: Si los datos de entrada no cumplen los requisitos esperados (por ejemplo, dimensiones incompatibles).
+    RuntimeError: Si ocurre un error durante el entrenamiento o evaluación del modelo (por ejemplo, problemas de CUDA o PyTorch).
+    Exception: Si ocurre cualquier otro error durante la carga, entrenamiento, evaluación o guardado de modelos y resultados.
     """
     nodos_dir = Path(nodos_dir)
     aristas_dir1 = Path(aristas_dir1)
@@ -142,15 +193,16 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
     eval_dir = Path(__file__).resolve().parent / "evaluation" / "heterognn"
     eval_dir.mkdir(parents=True, exist_ok=True)
     output_file = eval_dir / f"model_hetero_evaluation_{edges_name1}_{edges_name2}.txt"
+    pesos_dir = eval_dir / "pesos"
+    pesos_dir.mkdir(parents=True, exist_ok=True)
 
-    # Expresion para localizar pares por ID
     id_pattern = re.compile(r"_(\d+)\.csv$")
 
+    # Obtencion de pares de nodos y aristas
     def extraer_id(nombre):
         m = id_pattern.search(nombre)
         return m.group(1) if m else None
 
-    # Obtencion de IDs de los archivos de nodos y aristas
     nodos_files = {}
     for f in nodos_dir.glob("*.csv"):
         id_ = extraer_id(f.name)
@@ -180,7 +232,7 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
             try:
                 data = cargar_grafo(str(nodo_path), str(arista_path1), str(arista_path2))
 
-                # Optuna para hiperparametros por par, incluyendo num_layers
+                # Busqueda de hiperparametros optimos con Optuna
                 def objective(trial):
                     hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
                     num_layers = trial.suggest_int("num_layers", 2, 5)
@@ -203,7 +255,7 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
                 study.optimize(objective, n_trials=10, show_progress_bar=False)
                 best_params = study.best_params
 
-                # Entrenamiento final con los mejores hiperparametros
+                # Entrenamiento por medio de los mejores hiperparametros
                 result = train_node_regression_hetero(
                     data,
                     price_index=price_index,
@@ -213,13 +265,40 @@ def evaluar_hetero_por_pares(nodos_dir, aristas_dir1, aristas_dir2, price_index=
                     num_layers=best_params["num_layers"],
                     dropout=best_params["dropout"]
                 )
-                # Generacion de resultados
                 if (
                     result is not None and
                     not any(math.isnan(x) for x in result)
                 ):
                     mse, mae, r2 = result
                     resultados.append((float(mse), float(mae), float(r2)))
+                    # Entrena el modelo final para guardar los pesos
+                    model = None
+                    try:
+                        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                        model = HeteroGNN(
+                            data.metadata(),
+                            best_params["hidden_channels"],
+                            best_params["num_layers"],
+                            best_params["dropout"]
+                        ).to(device)
+                        optimizer = torch.optim.Adam(model.parameters(), lr=best_params["lr"])
+                        data_device = data.to(device)
+                        y = data_device['house'].x[:, price_index]
+                        idx = torch.randperm(data_device['house'].num_nodes)
+                        split = int(0.8 * data_device['house'].num_nodes)
+                        train_idx = idx[:split]
+                        for epoch in range(best_params["epochs"]):
+                            model.train()
+                            optimizer.zero_grad()
+                            out = model(data_device)
+                            loss = torch.nn.functional.mse_loss(out[train_idx], y[train_idx])
+                            loss.backward()
+                            optimizer.step()
+                        # Pesos del entrenamiento
+                        pesos_path = pesos_dir / f"pesos_hetero_{id_}.pt"
+                        torch.save(model.state_dict(), pesos_path)
+                    except Exception as e:
+                        print(f"Error guardando pesos para ID {id_}: {e}")
                     f.write(f"Grafo {id_}:\n")
                     f.write(f"Parametros usados: {best_params}\n")
                     f.write(f"Metricas: MSE={mse:.4f}, MAE={mae:.4f}, R2={r2:.4f}\n\n")
@@ -250,10 +329,15 @@ def crear_resumen_evaluation():
     en el directorio "evaluation".
 
     Parametros:
-    Ninguno
+    Ninguno.
 
     Returns:
-    Ninguno
+    Ninguno.
+
+    Raises:
+    FileNotFoundError: Si el directorio "evaluation" no existe.
+    PermissionError: Si no se tiene permiso para leer o escribir archivos en el directorio.
+    Exception: Si ocurre cualquier otro error al leer los archivos de evaluación o al escribir el resumen.
     """
     # Directorio y fichero de salida
     eval_dir = Path(__file__).resolve().parent / "evaluation"
@@ -288,10 +372,13 @@ if __name__ == "__main__":
 
     BASE_DIR = Path(__file__).resolve().parent
 
-    # Rutas concretas para probar la función
+    # Rutas concretas para probar las funciones
     nodes_dir = BASE_DIR / "data_pipeline" / "graphs" / "nodes"
     edges_dir1 = BASE_DIR / "data_pipeline" / "graphs" / "edges" / "kdd" / "0050_km"
     edges_dir2 = BASE_DIR / "data_pipeline" / "graphs" / "edges" / "similarity" / "0990_sim"
 
-    # Llama a la función de evaluación heterogénea
-    evaluar_hetero_por_pares(nodes_dir, edges_dir1, edges_dir2)
+    # Ejemplo de llamada a la funcion para evaluar GCN por pares
+    evaluar_gcn_por_pares(nodes_dir, edges_dir1, price_index=0)
+
+    # Ejemplo de llamada a la funcion para evaluar HeteroGNN por pares
+    evaluar_hetero_por_pares(nodes_dir, edges_dir1, edges_dir2, price_index=0)
