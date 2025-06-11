@@ -333,85 +333,45 @@ class GCNRegressor(torch.nn.Module):
         x = self.convs[-1](x, edge_index, edge_weight)
         return F.relu(x).squeeze()
 
-def entrenar_gnn_optuna(data, precios_reales):
+def predecir_precio_vivienda_con_pesos(
+    barrio, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features
+):
     """
-    Busca los mejores hiperparámetros con Optuna (20 intentos) y entrena el modelo GCN.
-    Devuelve el mejor modelo entrenado, el scaler de precios y los hiperparámetros óptimos.
-    El precio SE normaliza para el entrenamiento y se desnormaliza al mostrar métricas y predecir.
-    """
-    scaler_precio = MinMaxScaler()
-    precios_norm = scaler_precio.fit_transform(precios_reales)
-    precios_tensor = torch.tensor(precios_norm.squeeze(), dtype=torch.float32)
-    data.y = precios_tensor
+    Predice el precio de una vivienda usando los hiperparámetros y pesos del modelo asociados al barrio.
 
+    Args:
+        barrio (Barriada): Instancia del modelo Barriada.
+        data: Grafo Data de PyTorch Geometric.
+        vivienda_features: Lista de features de la vivienda.
+        vivienda_coord: Coordenadas de la vivienda.
+        scaler_precio: Scaler para desnormalizar el precio.
+        scaler_features: Scaler para normalizar los features.
+
+    Returns:
+        float: Precio predicho.
+    """
+    hiper = obtener_hiperparametro_barrio(barrio)
+    if hiper is None:
+        raise ValueError(f"No hay hiperparámetros para el barrio {barrio}")
+
+    # Inicializa el modelo con los hiperparámetros del barrio
     in_channels = data.x.shape[1]
-
-    def objective(trial):
-        hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
-        num_layers = trial.suggest_int("num_layers", 2, 5)
-        dropout = trial.suggest_float("dropout", 0.0, 0.5)
-        lr = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
-        epochs = trial.suggest_int("epochs", 100, 400)
-
-        model = GCNRegressor(in_channels, hidden_channels, num_layers, dropout)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        criterion = torch.nn.MSELoss()
-
-        model.train()
-        for epoch in range(epochs):
-            optimizer.zero_grad()
-            out = model(data)
-            loss = criterion(out, data.y)
-            loss.backward()
-            optimizer.step()
-
-        model.eval()
-        with torch.no_grad():
-            pred_norm = model(data).cpu().numpy().reshape(-1, 1)
-            pred = scaler_precio.inverse_transform(pred_norm).squeeze()
-            y_true = scaler_precio.inverse_transform(precios_norm).squeeze()
-            mse = ((pred - y_true) ** 2).mean()
-        return mse
-
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=20)
-
-    best_params = study.best_params
-
-    # Entrena el modelo final con los mejores hiperparámetros
     model = GCNRegressor(
         in_channels,
-        best_params["hidden_channels"],
-        best_params["num_layers"],
-        best_params["dropout"]
+        hiper.hidden_channels,
+        hiper.num_layers,
+        hiper.dropout
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=best_params["lr"])
-    criterion = torch.nn.MSELoss()
 
-    model.train()
-    for epoch in range(best_params["epochs"]):
-        optimizer.zero_grad()
-        out = model(data)
-        loss = criterion(out, data.y)
-        loss.backward()
-        optimizer.step()
+    # Construye la ruta del archivo de pesos automáticamente
+    base_dir = Path(__file__).resolve().parent.parent
+    pesos_path = base_dir / "webapp" / "data" / "weight" / f"pesos_gcn_{barrio.id}.pt"
+    model.load_state_dict(torch.load(pesos_path, map_location='cpu'))
 
-    # Evaluación de métricas (desnormalizadas)
-    model.eval()
-    with torch.no_grad():
-        pred_norm = model(data).cpu().numpy().reshape(-1, 1)
-        pred = scaler_precio.inverse_transform(pred_norm).squeeze()
-        y_true = scaler_precio.inverse_transform(precios_norm).squeeze()
-        mse = ((pred - y_true) ** 2).mean()
-        mae = (abs(pred - y_true)).mean()
-        ss_res = ((y_true - pred) ** 2).sum()
-        ss_tot = ((y_true - y_true.mean()) ** 2).sum()
-        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else float('nan')
-    print(f"MSE: {mse}, MAE: {mae}, R2: {r2}")
-
-    # Devuelve también los hiperparámetros óptimos por si los necesitas
-    return model, scaler_precio
-
+    # Llama a la función de predicción existente
+    return predecir_precio_vivienda(
+        model, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features
+    )
 def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features):
 
     """
@@ -492,6 +452,22 @@ def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, sca
         pred_real = scaler_precio.inverse_transform(pred_norm)[0, 0]
         pred_real = float(np.clip(pred_real, 480, 9500))
     return pred_real
+
+def obtener_hiperparametro_barrio(barrio):
+    """
+    Devuelve la instancia del modelo Hiperparametro asociada a un barrio dado.
+
+    Parametros:
+        barrio (Barriada): Instancia del modelo Barriada.
+
+    Returns:
+        Hiperparametro: Instancia asociada al barrio, o None si no existe.
+    """
+    try:
+        return barrio.hiperparametros.first()
+    except Exception as e:
+        print(f"Error al obtener hiperparámetro para el barrio {barrio}: {e}")
+        return None
 
 def generar_id_vivienda_unico():
     """
