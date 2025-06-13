@@ -6,16 +6,14 @@ from .utils import (
     procesar_nueva_vivienda_formulario,
     calcular_distancias,
     predecir_precio_m2_vivienda,
-    obtener_vecinos_vivienda,  # Asegúrate de importar la función
+    obtener_vecinos_vivienda,
 )
-from .models import Hiperparametro
 
 def prediccion_vivienda_view(request):
     if request.method == 'POST':
         form = ViviendaPrediccionForm(request.POST)
         if form.is_valid():
             datos = form.cleaned_data.copy()
-            # Elimina el objeto no serializable
             if 'barrio' in datos:
                 barrio = datos['barrio']
                 datos['barrio_nombre'] = str(barrio)
@@ -23,10 +21,13 @@ def prediccion_vivienda_view(request):
                 del datos['barrio']
             else:
                 barrio = obtener_barrio_desde_geojson(datos['latitud'], datos['longitud'])
+            # Tratamiento de datos de las viviendas del barrio con el que se predice
             viviendas_procesadas, scaler_features, scaler_target = procesar_viviendas_barrio(barrio)
+            # Calculo de distancias 
             distancia_metro, distancia_centro, distancia_blasco = calcular_distancias(
                 datos['latitud'], datos['longitud']
             )
+            # Tratamiento vivienda a predecir
             vivienda_proc = procesar_nueva_vivienda_formulario(
                 datos,
                 distancia_blasco,
@@ -34,25 +35,23 @@ def prediccion_vivienda_view(request):
                 distancia_centro,
                 scaler_features
             )
+            # Prediccion
             precio_predicho = predecir_precio_m2_vivienda(
                 viviendas_procesadas,
                 vivienda_proc,
                 barrio.id,
                 scaler_target
             )
+            # Resultados de la prediccion
             if precio_predicho is not None:
                 metros = datos['metros_construidos']
-                precio_m2_predicho = precio_predicho  # Guardar antes de multiplicar
+                precio_m2_predicho = precio_predicho
                 precio_total = precio_predicho * metros
                 precio_predicho = int(precio_total // 100 * 100)
             else:
                 precio_m2_predicho = None
-            print("distancia_blasco:", distancia_blasco)
-            print("distancia_metro:", distancia_metro)
-            print("distancia_centro:", distancia_centro)
-            # Obtener vecinos de la vivienda predicha
+            # Vecinos de la vivienda predicha
             vecinos = obtener_vecinos_vivienda(barrio.id, vivienda_proc)
-            # Guardar solo datos serializables en sesión, incluyendo precio_m2 de vecinos si existe
             request.session['resultado_prediccion'] = {
                 'datos': datos,
                 'precio_predicho': precio_predicho,

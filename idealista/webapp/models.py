@@ -1,8 +1,8 @@
 from django.db import models
 
 class Barriada(models.Model):
-    id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
-    nombre = models.CharField(max_length=255)  # Nombre de la barriada
+    id = models.CharField(max_length=255, unique=True, primary_key=True)
+    nombre = models.CharField(max_length=255)
 
     def __str__(self):
         return f"Barriada {self.id} - Name: {self.nombre}"
@@ -30,41 +30,41 @@ class Vivienda(models.Model):
         ("2HANDGOOD", "Segunda mano - Bueno"),
     ]
 
-    id = models.CharField(max_length=255, unique=True, primary_key=True)  # Identificador único
-    precio_m2 = models.FloatField()  # Precio de la vivienda
-    metros_construidos = models.IntegerField()  # Metros cuadrados construidos
-    num_hab = models.IntegerField()  # Número de habitaciones
-    num_wc = models.IntegerField()  # Número de baños
-    terraza = models.BooleanField(default=False)  # Tiene terraza
-    ascensor = models.BooleanField(default=False)  # Tiene ascensor
-    aire_acondicionado = models.BooleanField(default=False)  # Tiene aire acondicionado
-    parking = models.BooleanField(default=False)  # Tiene plaza de garaje
-    orientacion_norte = models.BooleanField(default=False)  # Orientación norte
-    orientacion_sur = models.BooleanField(default=False)  # Orientación sur
-    orientacion_este = models.BooleanField(default=False)  # Orientación este
-    orientacion_oeste = models.BooleanField(default=False)  # Orientación oeste
-    trastero = models.BooleanField(default=False)  # Tiene trastero
-    armario_empotrado = models.BooleanField(default=False)  # Tiene armario empotrado
-    piscina = models.BooleanField(default=False)  # Tiene piscina
-    portero = models.BooleanField(default=False)  # Tiene portero
-    jardin = models.BooleanField(default=False)  # Tiene jardín
-    duplex = models.BooleanField(default=False)  # Es un dúplex
-    estudio = models.BooleanField(default=False)  # Es un estudio
-    ultima_planta = models.BooleanField(default=False)  # Está en la última planta
-    planta = models.IntegerField()  # Planta (0 o -1)
-    plantas_edicio_catastro = models.IntegerField()  # Número total de plantas del edificio
-    calidad_catastro = models.PositiveSmallIntegerField()  # Calidad de la vivienda (0-9)
-    distancia_centro = models.FloatField()  # Distancia al centro de la ciudad (km)
-    distancia_metro = models.FloatField()  # Distancia a la parada de metro más cercana (km)
-    distancia_blasco = models.FloatField()  # Distancia a la avenida Blasco (km)
-    longitud = models.FloatField()  # Coordenada de longitud
-    latitud = models.FloatField()  # Coordenada de latitud
+    id = models.CharField(max_length=255, unique=True, primary_key=True)
+    precio_m2 = models.FloatField()
+    metros_construidos = models.IntegerField()
+    num_hab = models.IntegerField()
+    num_wc = models.IntegerField()
+    terraza = models.BooleanField(default=False)
+    ascensor = models.BooleanField(default=False)
+    aire_acondicionado = models.BooleanField(default=False)
+    parking = models.BooleanField(default=False)
+    orientacion_norte = models.BooleanField(default=False)
+    orientacion_sur = models.BooleanField(default=False)
+    orientacion_este = models.BooleanField(default=False)
+    orientacion_oeste = models.BooleanField(default=False)
+    trastero = models.BooleanField(default=False)
+    armario_empotrado = models.BooleanField(default=False)
+    piscina = models.BooleanField(default=False)
+    portero = models.BooleanField(default=False)
+    jardin = models.BooleanField(default=False)
+    duplex = models.BooleanField(default=False)
+    estudio = models.BooleanField(default=False)
+    ultima_planta = models.BooleanField(default=False)
+    planta = models.IntegerField()
+    plantas_edicio_catastro = models.IntegerField()
+    calidad_catastro = models.PositiveSmallIntegerField()
+    distancia_centro = models.FloatField()
+    distancia_metro = models.FloatField()
+    distancia_blasco = models.FloatField()
+    longitud = models.FloatField()
+    latitud = models.FloatField()
     estado = models.CharField(
         max_length=255,
         choices=STATUS_CHOICES,
         default="NEWCONSTRUCTION",
-    ) # Estado de la vivienda (nuevo, segunda mano - restaurar, segunda mano - bueno)
-    antiguedad = models.IntegerField()  # Antigüedad de la vivienda (en años)
+    )
+    antiguedad = models.IntegerField()
     barrio = models.ForeignKey(
         Barriada,
         to_field='id',
@@ -76,10 +76,10 @@ class Vivienda(models.Model):
         return f"Vivienda {self.id} - Precio: {self.precio_m2} x ({self.metros_construidos} m2)"
     
 class Metro(models.Model):
-    id = models.AutoField(primary_key=True)  # ID autoincremental
-    nombre = models.CharField(max_length=255)  # Nombre de la boca de metro
-    latitud = models.FloatField()           # Latitud
-    longitud = models.FloatField()          # Longitud
+    id = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=255)
+    latitud = models.FloatField()
+    longitud = models.FloatField()
 
     def __str__(self):
         return f"Metro {self.id} - {self.nombre} ({self.latitud}, {self.longitud})"
