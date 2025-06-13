@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import os
 import django
+
 # Configuracion del entorno Django
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
@@ -21,6 +22,11 @@ def cargar_barrios_desde_csv(ruta_csv):
 
     Returns:
     Ninguno
+
+    Raises:
+    FileNotFoundError: Si el archivo CSV no se encuentra.
+    ValueError: Si hay un error al procesar los datos del CSV.
+    OSError: Si hay un error al abrir o leer el archivo CSV.
     """
     with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
         lector = csv.DictReader(archivo)
@@ -37,36 +43,25 @@ def cargar_barrios_desde_csv(ruta_csv):
 
 def cargar_hiperparametros_desde_csv(ruta_csv):
     """
-    Carga los hiperparámetros de un archivo CSV y los guarda en la base de datos,
-    asociando cada conjunto de hiperparámetros al barrio correspondiente.
-
-    Parametros:
-    ruta_csv (str): Ruta al archivo CSV con los campos: ID,hidden_channels,num_layers,dropout,lr,epochs
-
-    Returns:
-    Ninguno
+    Lee un CSV de hiperparámetros y los almacena en la BD como objetos Hiperparametro.
+    El campo ID es el id del barrio al que pertenece.
     """
-    with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
-        lector = csv.DictReader(archivo)
-        hiperparametros_creados = 0
-        for fila in lector:
+    with open(ruta_csv, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            barrio_id = int(row['ID'])
             try:
-                barrio = Barriada.objects.get(id=fila["ID"])
-                hiper = Hiperparametro(
-                    barrio=barrio,
-                    hidden_channels=int(fila["HIDDENCHANELS"]),
-                    num_layers=int(fila["LAYERS"]),
-                    dropout=float(fila["DROPOUT"]),
-                    lr=float(fila["LR"]),
-                    epochs=int(fila["EPOCHS"])
-                )
-                hiper.save()
-                hiperparametros_creados += 1
+                barrio = Barriada.objects.get(id=barrio_id)
             except Barriada.DoesNotExist:
-                print(f"Barrio con ID {fila['ID']} no encontrado. Saltando fila.")
-            except Exception as e:
-                print(f"Error al guardar hiperparámetro para barrio {fila['ID']}: {e}")
-        print(f"Se han cargado {hiperparametros_creados} hiperparámetros en la base de datos.")
+                continue  # O puedes lanzar un error si prefieres
+            Hiperparametro.objects.create(
+                barrio=barrio,
+                hidden_channels=int(row['HIDDENCHANNELS']),
+                num_layers=int(row['LAYERS']),
+                dropout=float(row['DROPOUT']),
+                lr=float(row['LR']),
+                epochs=int(row['EPOCHS'])
+            )
 
 def cargar_viviendas_desde_csv(ruta_csv):
     """
@@ -78,6 +73,11 @@ def cargar_viviendas_desde_csv(ruta_csv):
 
     Returns:
     Ninguno
+
+    Raises:
+    FileNotFoundError: Si el archivo CSV no se encuentra.
+    ValueError: Si hay un error al procesar los datos del CSV.
+    OSError: Si hay un error al abrir o leer el archivo CSV.
     """
     try:
         with open(ruta_csv, mode='r', encoding='utf-8') as archivo:
