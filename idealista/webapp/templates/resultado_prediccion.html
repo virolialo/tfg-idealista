@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Resultado de la Predicción</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            background: #f4f6fa;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px 32px 24px 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #2a3d66;
+            margin-bottom: 24px;
+        }
+        .card-vivienda {
+            background: #f8fafc;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.10);
+            padding: 24px 18px 16px 18px;
+            margin-bottom: 28px;
+        }
+        .card-vivienda h2 {
+            color: #2a3d66;
+            font-size: 1.18em;
+            margin-bottom: 18px;
+            text-align: center;
+            letter-spacing: 0.2px;
+        }
+        .info-row {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 12px;
+        }
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        .info-block {
+            flex: 1;
+            background: #eef2fb;
+            border-radius: 10px;
+            padding: 12px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 110px;
+        }
+        .card-label {
+            color: #2a3d66;
+            font-weight: 500;
+            font-size: 0.98em;
+            margin-bottom: 2px;
+        }
+        .card-value {
+            color: #2a3d66;
+            font-size: 1.05em;
+            font-weight: 500;
+        }
+        .card-section {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 13px 10px 10px 10px;
+            margin-bottom: 14px;
+        }
+        .card-section:last-child {
+            margin-bottom: 0;
+        }
+        .chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .chip {
+            background: #e7eaf6;
+            color: #2563eb;
+            border-radius: 14px;
+            padding: 5px 14px;
+            font-size: 0.98em;
+            font-weight: 500;
+            border: 1px solid #cbd5e1;
+            transition: background 0.2s, color 0.2s;
+        }
+        .chip-empty {
+            background: #f1f5f9;
+            color: #888;
+            border: 1px solid #e5e7eb;
+        }
+        .star-row {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-top: 2px;
+        }
+        .star {
+            font-size: 1.25em;
+            color: #e5e7eb;
+        }
+        .star.filled {
+            color: #FFD700;
+        }
+        .estado-block {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 12px;
+            flex: 1;
+            margin-right: 10px;
+            min-width: 110px;
+        }
+        .calidad-block {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 12px;
+            flex: 1;
+            min-width: 110px;
+        }
+        .distancias-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        .distancia-block {
+            background: #eef2fb;
+            border-radius: 10px;
+            padding: 10px 12px;
+            min-width: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .distancia-block .card-value {
+            color: #2a3d66;
+        }
+        .volver-btn {
+            background: #2a3d66;
+            color: #fff;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: block;
+            margin: 32px auto 0 auto;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.07);
+            transition: background 0.2s;
+        }
+        .volver-btn:hover {
+            background: #1a2640;
+        }
+        #map {
+            height: 350px;
+            width: 100%;
+            margin: 20px 0 24px 0;
+            border-radius: 8px;
+            border: 1px solid #d0d6e2;
+        }
+        #precio-predicho-mapa {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            background: #eaf6e9;
+            color: #1a5d1a;
+            border: 1.5px solid #b6e2b6;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 1.1em;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.07);
+            z-index: 1001;
+            pointer-events: none;
+            min-width: 120px;
+            text-align: center;
+            height: 60px;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 12px; }
+            .card-vivienda { padding: 12px; }
+            .info-row, .distancias-row { flex-direction: column; gap: 8px; }
+            .estado-block, .calidad-block { margin-right: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Resultado predicción</h1>
+        <!-- Mapa primero -->
+        <div style="position: relative;">
+            <div id="map"></div>
+            <div id="precio-predicho-mapa">
+                <span style="font-size:0.98em; font-weight:500; display:block; color:#1a5d1a;">Precio predicho</span>
+                <span style="font-size:1.25em; font-weight:bold;">{{ precio_predicho|floatformat:0 }} €</span>
+            </div>
+        </div>
+        <!-- Card de datos de la vivienda -->
+        <div class="card-vivienda">
+            <h2>Datos de la vivienda</h2>
+            <!-- Card de datos principales -->
+            <div class="card-section">
+                <div class="info-row">
+                    <div class="info-block">
+                        <span class="card-label">Metros construidos</span>
+                        <span class="card-value">{{ datos.metros_construidos }}</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="card-label">Habitaciones</span>
+                        <span class="card-value">{{ datos.num_hab }}</span>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-block">
+                        <span class="card-label">Baños</span>
+                        <span class="card-value">{{ datos.num_wc }}</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="card-label">Planta</span>
+                        <span class="card-value">{{ datos.planta }}</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="card-label">¿Última planta?</span>
+                        <span class="card-value">{% if datos.ultima_planta %}Sí{% else %}No{% endif %}</span>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-block">
+                        <span class="card-label">Plantas edificio</span>
+                        <span class="card-value">{{ datos.plantas_edicio_catastro }}</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="card-label">Antigüedad (años)</span>
+                        <span class="card-value">{{ datos.antiguedad }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de comodidades -->
+            <div class="card-section">
+                <span class="card-label" style="display:block; margin-bottom:6px;">Comodidades:</span>
+                <div class="chip-list">
+                    {% if datos.terraza %}
+                        <span class="chip">Terraza</span>
+                    {% endif %}
+                    {% if datos.ascensor %}
+                        <span class="chip">Ascensor</span>
+                    {% endif %}
+                    {% if datos.aire_acondicionado %}
+                        <span class="chip">Aire acondicionado</span>
+                    {% endif %}
+                    {% if datos.parking %}
+                        <span class="chip">Parking</span>
+                    {% endif %}
+                    {% if datos.trastero %}
+                        <span class="chip">Trastero</span>
+                    {% endif %}
+                    {% if datos.armario_empotrado %}
+                        <span class="chip">Armario empotrado</span>
+                    {% endif %}
+                    {% if datos.duplex %}
+                        <span class="chip">Dúplex</span>
+                    {% endif %}
+                    {% if datos.estudio %}
+                        <span class="chip">Estudio</span>
+                    {% endif %}
+                    {% if not datos.terraza and not datos.ascensor and not datos.aire_acondicionado and not datos.parking and not datos.trastero and not datos.armario_empotrado and not datos.duplex and not datos.estudio %}
+                        <span class="chip chip-empty">Ninguna</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card de orientaciones -->
+            <div class="card-section">
+                <span class="card-label" style="display:block; margin-bottom:6px;">Orientaciones:</span>
+                <div class="chip-list">
+                    {% if datos.orientacion_norte %}
+                        <span class="chip">Norte</span>
+                    {% endif %}
+                    {% if datos.orientacion_sur %}
+                        <span class="chip">Sur</span>
+                    {% endif %}
+                    {% if datos.orientacion_este %}
+                        <span class="chip">Este</span>
+                    {% endif %}
+                    {% if datos.orientacion_oeste %}
+                        <span class="chip">Oeste</span>
+                    {% endif %}
+                    {% if not datos.orientacion_norte and not datos.orientacion_sur and not datos.orientacion_este and not datos.orientacion_oeste %}
+                        <span class="chip chip-empty">Ninguna</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estado y calidad catastro en la misma fila -->
+            <div class="info-row" style="margin-top:14px;">
+                <div class="estado-block">
+                    <span class="card-label" style="display:block; margin-bottom:6px;">Estado:</span>
+                    <span class="card-value">
+                        {% if datos.estado == "2HANDRESTORE" %}
+                            A restaurar
+                        {% elif datos.estado == "NEWCONSTRUCTION" %}
+                            Nuevo
+                        {% elif datos.estado == "2HANDGOOD" %}
+                            Bueno
+                        {% else %}
+                            {{ datos.estado }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="calidad-block">
+                    <span class="card-label" style="display:block; margin-bottom:6px;">Calidad catastro:</span>
+                    <span class="star-row">
+                        {% for i in "12345678910"|make_list %}
+                            <span class="star{% if forloop.counter <= datos.calidad_catastro %} filled{% endif %}">&#9733;</span>
+                        {% endfor %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Distancias -->
+            <div class="card-section" style="margin-top:14px;">
+                <span class="card-label" style="display:block; margin-bottom:6px;">Distancias:</span>
+                <div class="distancias-row">
+                    <div class="distancia-block">
+                        <span class="card-label">Centro</span>
+                        <span class="card-value">{{ distancia_centro|floatformat:2 }} km</span>
+                    </div>
+                    <div class="distancia-block">
+                        <span class="card-label">Metro</span>
+                        <span class="card-value">{{ distancia_metro|floatformat:2 }} km</span>
+                    </div>
+                    <div class="distancia-block">
+                        <span class="card-label">Blasco</span>
+                        <span class="card-value">{{ distancia_blasco|floatformat:2 }} km</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'prediccion_vivienda' %}">
+            <button class="volver-btn">Nueva predicción</button>
+        </a>
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+{{ vecinos|json_script:"vecinos-data" }}
+<script>
+    var lat = "{{ datos.latitud|default:"0" }}";
+    var lon = "{{ datos.longitud|default:"0" }}";
+    lat = parseFloat(lat);
+    lon = parseFloat(lon);
+    var map = L.map('map', {
+        center: [lat, lon],
+        zoom: 18,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        zoomControl: false,
+        tap: false,
+        touchZoom: false
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Marcador de la vivienda predicha (azul)
+    var precio_m2_predicho = "{{ precio_m2_predicho|floatformat:2|default:'N/A' }}";
+    var marker = L.marker([lat, lon], {icon: L.icon({
+        iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    })}).addTo(map);
+    marker.bindPopup(
+        "Vivienda predicha<br>Lat: " + lat + "<br>Lon: " + lon +
+        "<br>Precio m²: " + precio_m2_predicho + " €"
+    );
+
+    // Marcadores de vecinos (rojo)
+    var vecinos = JSON.parse(document.getElementById('vecinos-data').textContent);
+    vecinos.forEach(function(v) {
+        var popupText = "Vivienda vecina<br>Lat: " + v.latitud + "<br>Lon: " + v.longitud;
+        L.marker([v.latitud, v.longitud], {icon: L.icon({
+            iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+        })}).addTo(map)
+        .bindPopup(popupText);
+    });
+</script>
+</body>
+</html>

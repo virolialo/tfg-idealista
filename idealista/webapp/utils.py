@@ -3,118 +3,25 @@ from .models import Metro, Barriada, Vivienda
 import json
 from pathlib import Path
 from shapely.geometry import shape, Point
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import torch
+from torch_geometric.data import Data
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
-from torch_geometric.data import Data
-import numpy as np
 import optuna
+from pathlib import Path
+import torch
+from torch_geometric.data import DataLoader
+from django.conf import settings
+from .models import Hiperparametro
 import random
 import string
+import csv
+from .models import Hiperparametro
 
-FEATURES_ORDER = [
-    'metros_construidos', 'num_hab', 'num_wc', 'terraza', 'ascensor', 'aire_acondicionado', 'parking',
-    'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste', 'trastero',
-    'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta',
-    'calidad_catastro', 'tipo_1', 'tipo_2', 'tipo_3', 'distancia_centro', 'distancia_metro',
-    'distancia_blasco', 'antiguedad'
-]
-
-def obtener_features_ordenados(resultado, distancia_metro, distancia_centro, distancia_blasco, identificador):
-    """
-    Devuelve una lista de features ordenados según el orden requerido para la predicción.
-    """
-    ordered_fields = [
-        'id', 'precio', 'metros_construidos', 'num_hab', 'num_wc',
-        'terraza', 'ascensor', 'aire_acondicionado', 'parking',
-        'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste',
-        'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta',
-        'calidad_catastro', 'tipo_1', 'tipo_2', 'tipo_3',
-        'distancia_centro', 'distancia_metro', 'distancia_blasco',
-        'latitud', 'longitud', 'antiguedad', 'barrio'
-    ]
-
-    vivienda_dict = {
-        'id': identificador,
-        'precio_m2': None,  # El precio es el que se va a predecir
-        'metros_construidos': resultado.get('metros_construidos'),
-        'num_hab': resultado.get('num_hab'),
-        'num_wc': resultado.get('num_wc'),
-        'terraza': resultado.get('terraza'),
-        'ascensor': resultado.get('ascensor'),
-        'aire_acondicionado': resultado.get('aire_acondicionado'),
-        'parking': resultado.get('parking'),
-        'orientacion_norte': resultado.get('orientacion_norte'),
-        'orientacion_sur': resultado.get('orientacion_sur'),
-        'orientacion_este': resultado.get('orientacion_este'),
-        'orientacion_oeste': resultado.get('orientacion_oeste'),
-        'trastero': resultado.get('trastero'),
-        'armario_empotrado': resultado.get('armario_empotrado'),
-        'piscina': resultado.get('piscina'),
-        'portero': resultado.get('portero'),
-        'jardin': resultado.get('jardin'),
-        'duplex': resultado.get('duplex'),
-        'estudio': resultado.get('estudio'),
-        'ultima_planta': resultado.get('ultima_planta'),
-        'calidad_catastro': resultado.get('calidad_catastro'),
-        'tipo_1': resultado.get('tipo_1'),
-        'tipo_2': resultado.get('tipo_2'),
-        'tipo_3': resultado.get('tipo_3'),
-        'distancia_centro': distancia_centro,
-        'distancia_metro': distancia_metro,
-        'distancia_blasco': distancia_blasco,
-        'latitud': resultado.get('latitud'),
-        'longitud': resultado.get('longitud'),
-        'antiguedad': resultado.get('antiguedad'),
-        'barrio': resultado.get('barrio').id,
-    }
-
-    return vivienda_dict
-
-def preparar_datos_vivienda_form(data):
-    """
-    Recibe un diccionario con los campos del form y devuelve un nuevo diccionario
-    con los campos transformados según las reglas especificadas.
-    """
-    # Campos booleanos a convertir a 0/1
-    bool_fields = [
-        'terraza', 'ascensor', 'aire_acondicionado', 'parking', 'orientacion_norte',
-        'orientacion_sur', 'orientacion_este', 'orientacion_oeste', 'trastero',
-        'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta'
-    ]
-    result = data.copy()
-    for field in bool_fields:
-        result[field] = 1 if data.get(field, False) else 0
-
-    # calidad_catastro: restar 1
-    if 'calidad_catastro' in result and result['calidad_catastro'] is not None:
-        result['calidad_catastro'] = int(result['calidad_catastro']) - 1
-
-    # estado a tipo_1, tipo_2, tipo_3
-    estado = data.get('estado')
-    if estado == "NEWCONSTRUCTION":
-        result['tipo_1'] = 1
-        result['tipo_2'] = 0
-        result['tipo_3'] = 0
-    elif estado == "2HANDRESTORE":
-        result['tipo_1'] = 0
-        result['tipo_2'] = 1
-        result['tipo_3'] = 0
-    elif estado == "2HANDGOOD":
-        result['tipo_1'] = 0
-        result['tipo_2'] = 0
-        result['tipo_3'] = 1
-    else:
-        result['tipo_1'] = 0
-        result['tipo_2'] = 0
-        result['tipo_3'] = 0
-
-    # Elimina el campo 'estado' si existe
-    if 'estado' in result:
-        del result['estado']
-    print(result)
-    return result
 
 def haversine(lat1, lon1, lat2, lon2):
     """
@@ -179,145 +86,163 @@ def obtener_barrio_desde_geojson(lat, lon):
                     return None
     return None
 
-def procesar_viviendas_barrio(barriada):
+def procesar_viviendas_barrio(barrio):
     """
-    Procesa todas las viviendas de un barrio y devuelve una lista de diccionarios
-    con los atributos en el orden especificado:
-    id, precio, metros_construidos, num_hab, num_wc, terraza, ascensor, aire_acondicionado, parking,
-    orientacion_norte, orientacion_sur, orientacion_este, orientacion_oeste, trastero, armario_empotrado,
-    piscina, portero, jardin, duplex, estudio, ultima_planta, calidad_catastro, tipo_1, tipo_2, tipo_3,
-    distancia_centro, distancia_metro, distancia_blasco, latitud, longitud, antiguedad, barrio
+    Dado un barrio, obtiene todas las Viviendas asociadas y:
+    1. Transforma los atributos booleanos a 0/1.
+    2. Codifica el atributo 'estado' en tres columnas tipo_1, tipo_2, tipo_3.
+    3. Ordena los atributos según el orden especificado.
+    4. Normaliza el target (precio_m2) y los features numéricos seleccionados.
+
+    Returns:
+        viviendas_procesadas: lista de diccionarios con los atributos ordenados y transformados.
+        scaler_features: scaler ajustado a los features numéricos.
+        scaler_target: scaler ajustado al target.
     """
-    # Orden de los atributos
-    ordered_fields = [
-        'id', 'precio_m2', 'metros_construidos', 'num_hab', 'num_wc',
+
+    # Si barrio es una instancia, obtener su id
+    barrio_id = barrio.id if hasattr(barrio, 'id') else barrio
+
+    viviendas = Vivienda.objects.filter(barrio_id=barrio_id)
+
+    booleanos = [
         'terraza', 'ascensor', 'aire_acondicionado', 'parking',
         'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste',
-        'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta',
-        'calidad_catastro', 'tipo_1', 'tipo_2', 'tipo_3',
-        'distancia_centro', 'distancia_metro', 'distancia_blasco',
-        'latitud', 'longitud', 'antiguedad', 'barrio'
+        'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin',
+        'duplex', 'estudio', 'ultima_planta'
     ]
-    # Booleanos a 0/1
-    bool_fields = [
-        'terraza', 'ascensor', 'aire_acondicionado', 'parking', 'orientacion_norte',
-        'orientacion_sur', 'orientacion_este', 'orientacion_oeste', 'trastero',
-        'armario_empotrado', 'piscina', 'portero', 'jardin', 'duplex', 'estudio', 'ultima_planta'
-    ]
-    # Numéricos a normalizar (excepto precio, id, longitud, latitud)
-    num_fields = [
+    features_a_normalizar = [
         'metros_construidos', 'num_hab', 'num_wc', 'planta', 'plantas_edicio_catastro',
-        'calidad_catastro', 'distancia_centro', 'distancia_metro', 'distancia_blasco',
-        'antiguedad'
+        'calidad_catastro', 'distancia_centro', 'distancia_metro', 'distancia_blasco', 'antiguedad'
     ]
-    estado_map = {
-        "NEWCONSTRUCTION": [1, 0, 0],
-        "2HANDRESTORE": [0, 1, 0],
-        "2HANDGOOD": [0, 0, 1]
-    }
+    orden = [
+        'precio_m2', 'metros_construidos', 'num_hab', 'num_wc', 'terraza', 'ascensor',
+        'aire_acondicionado', 'parking', 'orientacion_norte', 'orientacion_sur', 'orientacion_este',
+        'orientacion_oeste', 'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin',
+        'duplex', 'estudio', 'ultima_planta', 'planta', 'plantas_edicio_catastro', 'calidad_catastro',
+        'distancia_centro', 'distancia_metro', 'distancia_blasco', 'longitud', 'latitud',
+        'tipo_1', 'tipo_2', 'tipo_3', 'antiguedad'
+    ]
 
-    viviendas_queryset = barriada.viviendas.all()
-    if not viviendas_queryset.exists():
-        return []
+    viviendas_lista = []
+    for v in viviendas:
+        d = {}
+        # Atributos básicos
+        d['precio_m2'] = v.precio_m2
+        d['metros_construidos'] = v.metros_construidos
+        d['num_hab'] = v.num_hab
+        d['num_wc'] = v.num_wc
+        d['planta'] = v.planta
+        d['plantas_edicio_catastro'] = v.plantas_edicio_catastro
+        d['calidad_catastro'] = v.calidad_catastro
+        d['distancia_centro'] = v.distancia_centro
+        d['distancia_metro'] = v.distancia_metro
+        d['distancia_blasco'] = v.distancia_blasco
+        d['longitud'] = v.longitud
+        d['latitud'] = v.latitud
+        d['antiguedad'] = v.antiguedad
 
-    # Prepara el scaler con los datos del queryset
-    X = []
-    for v in viviendas_queryset:
-        X.append([getattr(v, f) for f in num_fields])
-    scaler = MinMaxScaler()
-    scaler.fit(X)
+        # Booleanos a 0/1
+        for b in booleanos:
+            d[b] = 1 if getattr(v, b) else 0
 
-    resultados = []
-    for vivienda in viviendas_queryset:
-        temp = {}
-        # id, precio, latitud, longitud, barrio
-        temp['id'] = vivienda.id
-        temp['precio_m2'] = vivienda.precio_m2
-        temp['latitud'] = vivienda.latitud
-        temp['longitud'] = vivienda.longitud
-        temp['barrio'] = vivienda.barrio.id if hasattr(vivienda.barrio, 'id') else vivienda.barrio
+        # Codificación del estado
+        if v.estado == "NEWCONSTRUCTION":
+            d['tipo_1'], d['tipo_2'], d['tipo_3'] = 1, 0, 0
+        elif v.estado == "2HANDRESTORE":
+            d['tipo_1'], d['tipo_2'], d['tipo_3'] = 0, 1, 0
+        else:  # "2HANDGOOD"
+            d['tipo_1'], d['tipo_2'], d['tipo_3'] = 0, 0, 1
 
-        # Booleanos
-        for field in bool_fields:
-            temp[field] = int(getattr(vivienda, field))
-        # Normaliza los valores numéricos de la vivienda
-        v_array = [[getattr(vivienda, f) for f in num_fields]]
-        norm_values = scaler.transform(v_array)[0]
-        for i, field in enumerate(num_fields):
-            temp[field] = norm_values[i]
-        # Estado one-hot
-        estado = getattr(vivienda, 'estado')
-        buildtype = estado_map.get(estado, [0, 0, 0])
-        temp['tipo_1'] = buildtype[0]
-        temp['tipo_2'] = buildtype[1]
-        temp['tipo_3'] = buildtype[2]
+        viviendas_lista.append(d)
 
-        # Reordenar según ordered_fields
-        features = {field: temp.get(field, None) for field in ordered_fields}
-        resultados.append(features)
+    # Normalización
+    # Target
+    precios = np.array([v['precio_m2'] for v in viviendas_lista]).reshape(-1, 1)
+    scaler_target = MinMaxScaler()
+    precios_norm = scaler_target.fit_transform(precios)
+    for i, v in enumerate(viviendas_lista):
+        v['precio_m2'] = precios_norm[i, 0]
 
-    return resultados, scaler
+    # Features
+    X_features = np.array([[v[f] for f in features_a_normalizar] for v in viviendas_lista])
+    scaler_features = MinMaxScaler()
+    X_features_norm = scaler_features.fit_transform(X_features)
+    for i, v in enumerate(viviendas_lista):
+        for j, f in enumerate(features_a_normalizar):
+            v[f] = X_features_norm[i, j]
 
-def crear_grafo_vecindad(resultados):
+    # Orden final (sin id ni barrio)
+    viviendas_procesadas = []
+    for v in viviendas_lista:
+        v_ordenado = {k: v[k] for k in orden}
+        viviendas_procesadas.append(v_ordenado)
+    print(f"Procesadas {len(viviendas_procesadas)} viviendas del barrio {barrio_id}.")
+    return viviendas_procesadas, scaler_features, scaler_target
+
+def crear_grafo_vecindad(viviendas_procesadas):
     """
-    Crea un grafo PyTorch Geometric a partir de los resultados procesados de viviendas.
-    - Nodos: viviendas (features = todos los atributos excepto id, precio, latitud, longitud, barrio)
-    - Aristas: entre viviendas a <= radio_km, o con la más cercana si está aislada
-    - Peso de la arista: distancia en km
+    Crea un grafo PyTorch Geometric a partir de una lista de viviendas procesadas.
+    - Crea aristas entre viviendas a menos de radio_km (por defecto 0.05 km) usando la distancia como peso.
+    - Si un nodo queda aislado, se conecta a su vecino más cercano.
+    - Elimina los atributos 'id', 'precio_m2', 'barrio', 'latitud' y 'longitud' de los features de cada nodo.
+
+    Args:
+        viviendas_procesadas (list[dict]): Lista de viviendas procesadas.
+        radio_km (float): Radio de vecindad en kilómetros.
+
+    Returns:
+        Data: Grafo PyTorch Geometric.
     """
+    n = len(viviendas_procesadas)
+    latitudes = np.array([v['latitud'] for v in viviendas_procesadas])
+    longitudes = np.array([v['longitud'] for v in viviendas_procesadas])
 
-    radio_km=0.05  # Radio de vecindad en km
-    # Extraer coordenadas y features
-    coords = []
-    features = []
-    for v in resultados:
-        coords.append((v['latitud'], v['longitud']))
-        feat = [v[k] for k in FEATURES_ORDER]
-        features.append(feat)
-    X = np.array(features, dtype=np.float32)
-    num_nodes = len(resultados)
-    print(features[0])
+    radio_km = 0.05
 
-    # Crear aristas según el radio
+    # Construir matriz de distancias
+    dist_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1, n):
+            dist = haversine(latitudes[i], longitudes[i], latitudes[j], longitudes[j])
+            dist_matrix[i, j] = dist
+            dist_matrix[j, i] = dist
+
+    # Crear aristas por vecindad
     edge_index = []
     edge_attr = []
-    for i in range(num_nodes):
+    for i in range(n):
         vecinos = []
-        for j in range(num_nodes):
-            if i == j:
-                continue
-            dist = haversine(coords[i][0], coords[i][1], coords[j][0], coords[j][1])
-            if dist <= radio_km:
+        for j in range(n):
+            if i != j and dist_matrix[i, j] <= radio_km:
                 edge_index.append([i, j])
-                edge_attr.append([dist])
+                edge_attr.append([dist_matrix[i, j]])
                 vecinos.append(j)
         # Si no tiene vecinos, conectar con el más cercano
         if not vecinos:
-            min_dist = float('inf')
-            min_j = None
-            for j in range(num_nodes):
-                if i == j:
-                    continue
-                dist = haversine(coords[i][0], coords[i][1], coords[j][0], coords[j][1])
-                if dist < min_dist:
-                    min_dist = dist
-                    min_j = j
-            if min_j is not None:
-                edge_index.append([i, min_j])
-                edge_attr.append([min_dist])
+            nearest = np.argmin(dist_matrix[i] + np.eye(n)[i]*1e6)
+            edge_index.append([i, nearest])
+            edge_attr.append([dist_matrix[i, nearest]])
 
-    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous() if edge_index else torch.empty((2,0), dtype=torch.long)
-    edge_attr = torch.tensor(edge_attr, dtype=torch.float32) if edge_attr else torch.empty((0,1), dtype=torch.float32)
-    x = torch.tensor(X, dtype=torch.float32)
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+    edge_attr = torch.tensor(edge_attr, dtype=torch.float)
 
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-    print(f"Creado grafo con {num_nodes} nodos y {edge_index.size(1)} aristas.")
+    # Features de los nodos (eliminando 'id', 'precio_m2', 'barrio', 'latitud', 'longitud')
+    features_keys = [k for k in viviendas_procesadas[0].keys() if k not in ('precio_m2', 'latitud', 'longitud')]
+    x = torch.tensor([[v[k] for k in features_keys] for v in viviendas_procesadas], dtype=torch.float)
+
+    # Target (precio_m2 normalizado)
+    y = torch.tensor([v['precio_m2'] for v in viviendas_procesadas], dtype=torch.float)
+
+    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y)
+    print(f"Creado grafo con {data.num_nodes} nodos y {data.num_edges} aristas.")
+
     return data
-    
-class GCNRegressor(torch.nn.Module):
+
+class GCNRegressor(nn.Module):
     def __init__(self, in_channels, hidden_channels, num_layers, dropout):
         super().__init__()
-        self.convs = torch.nn.ModuleList()
+        self.convs = nn.ModuleList()
         self.convs.append(GCNConv(in_channels, hidden_channels))
         for _ in range(num_layers - 2):
             self.convs.append(GCNConv(hidden_channels, hidden_channels))
@@ -325,160 +250,369 @@ class GCNRegressor(torch.nn.Module):
         self.dropout = dropout
 
     def forward(self, data):
-        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr.squeeze()
+        x, edge_index = data.x, data.edge_index
+        edge_weight = data.edge_attr.squeeze() if hasattr(data, "edge_attr") else None
         for conv in self.convs[:-1]:
-            x = conv(x, edge_index, edge_weight)
+            x = conv(x, edge_index, edge_weight=edge_weight)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.convs[-1](x, edge_index, edge_weight)
-        return F.relu(x).squeeze()
+        x = self.convs[-1](x, edge_index, edge_weight=edge_weight)
+        return x.squeeze()
 
-def predecir_precio_vivienda_con_pesos(
-    barrio, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features
-):
+def entrenar_gcn_optuna(grafo, barrio_id, scaler_target=None):
     """
-    Predice el precio de una vivienda usando los hiperparámetros y pesos del modelo asociados al barrio.
-
-    Args:
-        barrio (Barriada): Instancia del modelo Barriada.
-        data: Grafo Data de PyTorch Geometric.
-        vivienda_features: Lista de features de la vivienda.
-        vivienda_coord: Coordenadas de la vivienda.
-        scaler_precio: Scaler para desnormalizar el precio.
-        scaler_features: Scaler para normalizar los features.
-
-    Returns:
-        float: Precio predicho.
+    Entrena el modelo GCN usando Optuna para optimizar hiperparámetros.
+    Divide los nodos en train/test, entrena solo con train y evalúa en test.
+    Guarda los mejores hiperparámetros en la BD y los pesos en disco.
+    Devuelve métricas de evaluación, incluyendo errores desnormalizados si se pasa scaler_target.
     """
-    hiper = obtener_hiperparametro_barrio(barrio)
-    if hiper is None:
-        raise ValueError(f"No hay hiperparámetros para el barrio {barrio}")
+    # Valores fijos
+    n_trials = 20
+    max_epochs = 200
+    test_ratio = 0.2
 
-    # Inicializa el modelo con los hiperparámetros del barrio
-    in_channels = data.x.shape[1]
-    model = GCNRegressor(
-        in_channels,
-        hiper.hidden_channels,
-        hiper.num_layers,
-        hiper.dropout
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    data = grafo.to(device)
+    n_nodes = data.num_nodes
+
+    # División aleatoria de nodos en train/test
+    idx = np.arange(n_nodes)
+    np.random.shuffle(idx)
+    split = int(n_nodes * (1 - test_ratio))
+    train_idx = torch.tensor(idx[:split], dtype=torch.long, device=device)
+    test_idx = torch.tensor(idx[split:], dtype=torch.long, device=device)
+
+    def objective(trial):
+        hidden_channels = trial.suggest_int("hidden_channels", 8, 128)
+        num_layers = trial.suggest_int("num_layers", 2, 5)
+        dropout = trial.suggest_float("dropout", 0.0, 0.5)
+        lr = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
+        epochs = trial.suggest_int("epochs", 50, max_epochs)
+
+        model = GCNRegressor(
+            in_channels=data.x.shape[1],
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            dropout=dropout
+        ).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        loss_fn = torch.nn.MSELoss()
+
+        model.train()
+        for epoch in range(epochs):
+            optimizer.zero_grad()
+            out = model(data)[train_idx]
+            loss = loss_fn(out, data.y[train_idx])
+            loss.backward()
+            optimizer.step()
+
+        model.eval()
+        with torch.no_grad():
+            pred = model(data)[test_idx]
+            target = data.y[test_idx]
+            mse = torch.mean((pred - target) ** 2).item()
+            mae = torch.mean(torch.abs(pred - target)).item()
+            ss_res = torch.sum((pred - target) ** 2).item()
+            ss_tot = torch.sum((target - torch.mean(target)) ** 2).item()
+            r2 = 1 - ss_res / ss_tot if ss_tot != 0 else float('nan')
+        trial.set_user_attr("mae", mae)
+        trial.set_user_attr("epochs", epochs)
+        trial.set_user_attr("r2", r2)
+        return mse
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=n_trials)
+
+    best_params = study.best_params
+    best_mae = study.best_trial.user_attrs["mae"]
+    best_epochs = study.best_trial.user_attrs["epochs"]
+    best_r2 = study.best_trial.user_attrs["r2"]
+
+    # Entrena el modelo final con los mejores hiperparámetros
+    best_model = GCNRegressor(
+        in_channels=data.x.shape[1],
+        hidden_channels=best_params["hidden_channels"],
+        num_layers=best_params["num_layers"],
+        dropout=best_params["dropout"]
+    ).to(device)
+    optimizer = torch.optim.Adam(best_model.parameters(), lr=best_params["lr"])
+    loss_fn = torch.nn.MSELoss()
+    best_model.train()
+    for epoch in range(best_epochs):
+        optimizer.zero_grad()
+        out = best_model(data)[train_idx]
+        loss = loss_fn(out, data.y[train_idx])
+        loss.backward()
+        optimizer.step()
+
+    # Guarda los hiperparámetros en la BD
+    Hiperparametro.objects.update_or_create(
+        barrio_id=barrio_id,
+        defaults={
+            "hidden_channels": best_params["hidden_channels"],
+            "num_layers": best_params["num_layers"],
+            "dropout": best_params["dropout"],
+            "lr": best_params["lr"],
+            "epochs": best_epochs,
+        }
     )
 
-    # Construye la ruta del archivo de pesos automáticamente
-    base_dir = Path(__file__).resolve().parent.parent
-    pesos_path = base_dir / "webapp" / "data" / "weight" / f"pesos_gcn_{barrio.id}.pt"
-    model.load_state_dict(torch.load(pesos_path, map_location='cpu'))
+    # Guarda los pesos
+    BASE_DIR = Path(settings.BASE_DIR)
+    weight_dir = BASE_DIR / "webapp" / "data" / "weight"
+    weight_dir.mkdir(parents=True, exist_ok=True)
+    weight_path = weight_dir / f"pesos_gcn_{barrio_id}.pt"
+    torch.save(best_model.state_dict(), weight_path)
 
-    # Llama a la función de predicción existente
-    return predecir_precio_vivienda(
-        model, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features
-    )
-def predecir_precio_vivienda(model, data, vivienda_features, vivienda_coord, scaler_precio, scaler_features):
-
-    """
-    Predice el precio de una vivienda a partir de sus atributos integrándola en el grafo.
-    Normaliza los features numéricos de la vivienda con el scaler de procesar_viviendas_barrio.
-    El precio predicho se desnormaliza antes de devolverlo.
-    """
-    radio_km = 0.05
-
-    if isinstance(vivienda_features, dict):
-        vivienda_features = [vivienda_features[k] for k in FEATURES_ORDER]
-
-    # Campos numéricos a normalizar (fijos)
-    num_fields = [
-        'metros_construidos', 'num_hab', 'num_wc', 'planta', 'plantas_edicio_catastro',
-        'calidad_catastro', 'distancia_centro', 'distancia_metro', 'distancia_blasco',
-        'antiguedad'
-    ]
-
-    vivienda_features = np.array(vivienda_features, dtype=np.float32)
-
-    # Normaliza los features numéricos
-    feature_keys = [k for k in data.x[0]._fields] if hasattr(data.x[0], '_fields') else None
-    if feature_keys:
-        for i, k in enumerate(feature_keys):
-            if k in num_fields:
-                idx = num_fields.index(k)
-                vivienda_features[i] = scaler_features.transform([[vivienda_features[j] for j, key in enumerate(feature_keys) if key in num_fields]])[0][idx]
-    else:
-        # Si no tienes los nombres, asume que los campos numéricos están en las mismas posiciones que en el grafo
-        # y que el orden de vivienda_features es el mismo que en crear_grafo_vecindad
-        # Busca los índices de los campos numéricos en el vector de features
-        # Por ejemplo, si sabes que los campos numéricos están en las posiciones [0,1,2,3,4,5,6,7,8,9]
-        # puedes hacer:
-        idxs_num_fields = [i for i, k in enumerate(num_fields) if k in num_fields]
-        num_values = [vivienda_features[i] for i in idxs_num_fields]
-        norm_values = scaler_features.transform([num_values])[0]
-        for idx, norm_val in zip(idxs_num_fields, norm_values):
-            vivienda_features[idx] = norm_val
-
-    x_new = torch.cat([data.x, torch.tensor([vivienda_features], dtype=torch.float32)], dim=0)
-    coords = [tuple(c) for c in data.x.cpu().numpy()]
-    coords.append(vivienda_coord)
-    num_nodes = x_new.shape[0]
-
-    edge_index = data.edge_index.cpu().numpy().tolist()
-    edge_attr = data.edge_attr.cpu().numpy().tolist()
-
-    vecinos = []
-    for j in range(num_nodes - 1):
-        dist = haversine(vivienda_coord[0], vivienda_coord[1], coords[j][0], coords[j][1])
-        if dist <= radio_km:
-            edge_index[0].append(num_nodes - 1)
-            edge_index[1].append(j)
-            edge_attr.append([dist])
-            vecinos.append(j)
-    if not vecinos:
-        min_dist = float('inf')
-        min_j = None
-        for j in range(num_nodes - 1):
-            dist = haversine(vivienda_coord[0], vivienda_coord[1], coords[j][0], coords[j][1])
-            if dist < min_dist:
-                min_dist = dist
-                min_j = j
-        if min_j is not None:
-            edge_index[0].append(num_nodes - 1)
-            edge_index[1].append(min_j)
-            edge_attr.append([min_dist])
-
-    edge_index = torch.tensor(edge_index, dtype=torch.long)
-    edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
-    data_new = Data(x=x_new, edge_index=edge_index, edge_attr=edge_attr)
-
-    # Predecir y desnormalizar el precio
-    model.eval()
+    # Métricas finales en test
+    best_model.eval()
     with torch.no_grad():
-        pred_norm = model(data_new)[-1].cpu().numpy().reshape(1, -1)
-        pred_real = scaler_precio.inverse_transform(pred_norm)[0, 0]
-        pred_real = float(np.clip(pred_real, 480, 9500))
-    return pred_real
+        pred = best_model(data)[test_idx].cpu().numpy()
+        target = data.y[test_idx].cpu().numpy()
+        mse = np.mean((pred - target) ** 2)
+        mae = np.mean(np.abs(pred - target))
+        ss_res = np.sum((pred - target) ** 2)
+        ss_tot = np.sum((target - np.mean(target)) ** 2)
+        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else float('nan')
 
-def obtener_hiperparametro_barrio(barrio):
-    """
-    Devuelve la instancia del modelo Hiperparametro asociada a un barrio dado.
+        # Desnormalización si se pasa scaler_target
+        if scaler_target is not None:
+            pred_desnorm = scaler_target.inverse_transform(pred.reshape(-1, 1)).flatten()
+            target_desnorm = scaler_target.inverse_transform(target.reshape(-1, 1)).flatten()
+            mse_desnorm = np.mean((pred_desnorm - target_desnorm) ** 2)
+            mae_desnorm = np.mean(np.abs(pred_desnorm - target_desnorm))
+        else:
+            mse_desnorm = None
+            mae_desnorm = None
 
-    Parametros:
-        barrio (Barriada): Instancia del modelo Barriada.
-
-    Returns:
-        Hiperparametro: Instancia asociada al barrio, o None si no existe.
-    """
-    try:
-        return barrio.hiperparametros.first()
-    except Exception as e:
-        print(f"Error al obtener hiperparámetro para el barrio {barrio}: {e}")
-        return None
+    return {
+        "mse": mse,
+        "mae": mae,
+        "r2": r2,
+        "mse_desnorm": mse_desnorm,
+        "mae_desnorm": mae_desnorm,
+        "best_params": best_params,
+        "epochs": best_epochs,
+        "weight_path": str(weight_path)
+    }
 
 def generar_id_vivienda_unico():
     """
-    Genera un id único para una vivienda, formado por la letra 'A' y una secuencia de números.
-    Ejemplo: 'A18333312729820435049'
-    Comprueba que no exista ya en la base de datos.
+    Genera un ID aleatorio para vivienda que empieza por 'A' seguido de dígitos,
+    y comprueba que no exista ya en la base de datos. Si existe, repite hasta encontrar uno único.
+    Ejemplo de ID: A9651535568269959084
     """
     while True:
-        letra = 'A'
-        numeros = ''.join(random.choices(string.digits, k=17))
-        nuevo_id = f"{letra}{numeros}"
-        if not Vivienda.objects.filter(id=nuevo_id).exists():
-            return nuevo_id
+        # Genera una cadena: 'A' + 18 dígitos aleatorios
+        id_candidato = 'A' + ''.join(random.choices(string.digits, k=18))
+        if not Vivienda.objects.filter(id=id_candidato).exists():
+            return id_candidato
         
+def procesar_nueva_vivienda_formulario(
+    datos_formulario,
+    distancia_blasco,
+    distancia_metro,
+    distancia_centro,
+    scaler_features
+):
+    """
+    Procesa y normaliza los datos de una nueva vivienda recibidos desde un formulario,
+    usando el mismo procesamiento y normalización que en procesar_viviendas_barrio(),
+    pero sin incluir precio_m2.
+
+    Args:
+        datos_formulario (dict): Diccionario con los datos del formulario.
+        distancia_blasco (float): Distancia a Blasco Ibáñez (km)
+        distancia_metro (float): Distancia a metro más cercano (km)
+        distancia_centro (float): Distancia al centro (km)
+        scaler_features (MinMaxScaler): Scaler ajustado a los features numéricos.
+
+    Returns:
+        dict: Diccionario con los datos procesados y normalizados, en el orden especificado.
+    """
+    booleanos = [
+        'terraza', 'ascensor', 'aire_acondicionado', 'parking',
+        'orientacion_norte', 'orientacion_sur', 'orientacion_este', 'orientacion_oeste',
+        'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin',
+        'duplex', 'estudio', 'ultima_planta'
+    ]
+    features_a_normalizar = [
+        'metros_construidos', 'num_hab', 'num_wc', 'planta', 'plantas_edicio_catastro',
+        'calidad_catastro', 'distancia_centro', 'distancia_metro', 'distancia_blasco', 'antiguedad'
+    ]
+    orden = [
+        'metros_construidos', 'num_hab', 'num_wc', 'terraza', 'ascensor',
+        'aire_acondicionado', 'parking', 'orientacion_norte', 'orientacion_sur', 'orientacion_este',
+        'orientacion_oeste', 'trastero', 'armario_empotrado', 'piscina', 'portero', 'jardin',
+        'duplex', 'estudio', 'ultima_planta', 'planta', 'plantas_edicio_catastro', 'calidad_catastro',
+        'distancia_centro', 'distancia_metro', 'distancia_blasco', 'longitud', 'latitud',
+        'tipo_1', 'tipo_2', 'tipo_3', 'antiguedad', 'precio_m2'  # Añadimos precio_m2 al final
+    ]
+
+    v = {}
+    # Atributos básicos
+    v['metros_construidos'] = datos_formulario['metros_construidos']
+    v['num_hab'] = datos_formulario['num_hab']
+    v['num_wc'] = datos_formulario['num_wc']
+    v['planta'] = datos_formulario['planta']
+    v['plantas_edicio_catastro'] = datos_formulario['plantas_edicio_catastro']
+    v['calidad_catastro'] = datos_formulario['calidad_catastro']
+    v['distancia_centro'] = distancia_centro
+    v['distancia_metro'] = distancia_metro
+    v['distancia_blasco'] = distancia_blasco
+    v['longitud'] = datos_formulario['longitud']
+    v['latitud'] = datos_formulario['latitud']
+    v['antiguedad'] = datos_formulario['antiguedad']
+
+    # Booleanos a 0/1
+    for b in booleanos:
+        v[b] = 1 if datos_formulario.get(b, False) else 0
+
+    # Codificación del estado
+    estado = datos_formulario.get('estado', '2HANDGOOD')
+    if estado == "NEWCONSTRUCTION":
+        v['tipo_1'], v['tipo_2'], v['tipo_3'] = 1, 0, 0
+    elif estado == "2HANDRESTORE":
+        v['tipo_1'], v['tipo_2'], v['tipo_3'] = 0, 1, 0
+    else:  # "2HANDGOOD" u otro
+        v['tipo_1'], v['tipo_2'], v['tipo_3'] = 0, 0, 1
+
+    # Normalización de features numéricos
+    X_features = np.array([[v[f] for f in features_a_normalizar]])
+    X_features_norm = scaler_features.transform(X_features)
+    for j, f in enumerate(features_a_normalizar):
+        v[f] = X_features_norm[0, j]
+
+    # Añadir precio_m2 ficticio para predicción
+    v['precio_m2'] = 0
+
+    # Orden final
+    v_ordenado = {k: v.get(k, None) for k in orden}
+    return v_ordenado
+
+def predecir_precio_m2_vivienda(
+    viviendas_procesadas,
+    vivienda_proc,
+    barrio_id,
+    scaler_target
+):
+    """
+    Integra la nueva vivienda en el grafo de vecindad, predice su precio_m2 usando el modelo GCN entrenado
+    y devuelve el precio desnormalizado.
+
+    Args:
+        viviendas_procesadas (list[dict]): Lista de viviendas procesadas del barrio.
+        vivienda_proc (dict): Diccionario procesado y normalizado de la nueva vivienda.
+        barrio_id (int): ID del barrio.
+        scaler_target (MinMaxScaler): Scaler ajustado al target (precio_m2).
+
+    Returns:
+        float: Predicción desnormalizada de precio_m2 para la nueva vivienda.
+    """
+    import torch
+    from pathlib import Path
+    from django.conf import settings
+    from .models import Hiperparametro
+
+    # 1. Añadir la nueva vivienda a la lista de viviendas procesadas
+    viviendas_full = viviendas_procesadas + [vivienda_proc]
+
+    # 2. Crear el nuevo grafo con la vivienda añadida
+    grafo_nuevo = crear_grafo_vecindad(viviendas_full)
+
+    # 3. Cargar hiperparámetros y pesos del modelo
+    params = Hiperparametro.objects.get(barrio_id=barrio_id)
+    BASE_DIR = Path(settings.BASE_DIR)
+    weight_path = BASE_DIR / "webapp" / "data" / "weight" / f"pesos_gcn_{barrio_id}.pt"
+    print(f"Cargando pesos del modelo desde: {weight_path}")
+    in_channels = grafo_nuevo.x.shape[1]
+    model = GCNRegressor(
+        in_channels=in_channels,
+        hidden_channels=params.hidden_channels,
+        num_layers=params.num_layers,
+        dropout=params.dropout
+    )
+    model.load_state_dict(torch.load(weight_path, map_location="cpu"))
+    model.eval()
+
+    # 4. Predecir para el último nodo (la nueva vivienda)
+    with torch.no_grad():
+        out = model(grafo_nuevo)
+        pred_norm = out[-1].item()  # Último nodo es la nueva vivienda
+
+    # 5. Desnormalizar el resultado
+    precio_predicho = scaler_target.inverse_transform([[pred_norm]])[0, 0]
+
+    # 6. Limitar el precio_m2 a un rango razonable
+    precio_predicho = max(500, min(precio_predicho, 4000))
+    print(f"Precio predicho (desnormalizado): {precio_predicho}")
+    return precio_predicho
+
+def obtener_vecinos_vivienda(barrio_id, vivienda_proc):
+    """
+    Dado un id de barrio y una vivienda procesada (diccionario con los mismos campos que las viviendas del barrio),
+    crea el grafo de vecindad y devuelve la lista de viviendas del barrio que están conectadas (vecinas) a la vivienda pasada.
+
+    Args:
+        barrio_id (int): ID del barrio.
+        vivienda_proc (dict): Diccionario procesado de la vivienda (con latitud y longitud).
+
+    Returns:
+        list[dict]: Lista de viviendas vecinas (diccionarios) del barrio, solo con latitud y longitud.
+    """
+    radio_km = 0.05  # Fijo
+    # Obtener viviendas procesadas del barrio
+    viviendas_procesadas, _, _ = procesar_viviendas_barrio(barrio_id)
+    # Añadir la vivienda nueva al final
+    viviendas_full = viviendas_procesadas + [vivienda_proc]
+
+    # Crear grafo de vecindad
+    n = len(viviendas_full)
+    latitudes = np.array([v['latitud'] for v in viviendas_full])
+    longitudes = np.array([v['longitud'] for v in viviendas_full])
+
+    # Construir matriz de distancias
+    dist_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1, n):
+            dist = haversine(latitudes[i], longitudes[i], latitudes[j], longitudes[j])
+            dist_matrix[i, j] = dist
+            dist_matrix[j, i] = dist
+
+    # Buscar vecinos de la última vivienda (la pasada por parámetro)
+    idx_vivienda = n - 1
+    vecinos_idx = [i for i in range(n-1) if dist_matrix[idx_vivienda, i] <= radio_km]
+
+    # Si no tiene vecinos, conectar con el más cercano
+    if not vecinos_idx and n > 1:
+        nearest = np.argmin(dist_matrix[idx_vivienda, :-1])
+        vecinos_idx = [nearest]
+
+    # Devolver solo latitud y longitud
+    vecinos = []
+    for v in [viviendas_procesadas[i] for i in vecinos_idx]:
+        vecinos.append({
+            'latitud': float(v['latitud']),
+            'longitud': float(v['longitud'])
+        })
+    return vecinos
+
+def exportar_hiperparametros_csv(ruta_csv):
+    """
+    Exporta todos los hiperparámetros registrados en la BD a un archivo CSV.
+    Los campos flotantes se exportan con todos sus decimales.
+    Cabecera: ID,HIDDENCHANNELS,LAYERS,DROPOUT,LR,EPOCHS
+    """
+    hiperparams = Hiperparametro.objects.all()
+    with open(ruta_csv, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['ID', 'HIDDENCHANNELS', 'LAYERS', 'DROPOUT', 'LR', 'EPOCHS'])
+        for h in hiperparams:
+            writer.writerow([
+                h.barrio_id,
+                h.hidden_channels,
+                h.num_layers,
+                repr(h.dropout),  # todos los decimales
+                repr(h.lr),       # todos los decimales
+                h.epochs
+            ])

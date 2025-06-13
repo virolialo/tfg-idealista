@@ -114,6 +114,54 @@ class ViviendaPrediccionForm(forms.Form):
             if value not in [True, False]:
                 self.add_error(field, "Este campo debe ser verdadero o falso (sí/no).")
 
+        # 1. No puede haber más baños que habitaciones
+        num_wc = cleaned_data.get('num_wc')
+        num_hab = cleaned_data.get('num_hab')
+        if num_wc is not None and num_hab is not None and num_wc > num_hab:
+            self.add_error('num_wc', "No puede haber más baños que habitaciones.")
+
+        # 2. Si es planta baja (planta=0), no puede ser última planta
+        planta = cleaned_data.get('planta')
+        ultima_planta = cleaned_data.get('ultima_planta')
+        if planta == 0 and ultima_planta:
+            self.add_error('ultima_planta', "Una planta baja no puede ser la última planta.")
+
+        # 4. Si es dúplex, debe tener al menos 2 plantas en el edificio
+        duplex = cleaned_data.get('duplex')
+        plantas_edificio = cleaned_data.get('plantas_edicio_catastro')
+        if duplex and isinstance(plantas_edificio, int) and plantas_edificio < 2:
+            self.add_error('duplex', "Un dúplex debe estar en un edificio de al menos 2 plantas.")
+
+        # 5. Si antigüedad es 0, debe ser 'Nueva construcción'
+        antiguedad = cleaned_data.get('antiguedad')
+        estado = cleaned_data.get('estado')
+        if antiguedad == 0 and estado != "NEWCONSTRUCTION":
+            self.add_error('estado', "Si la antigüedad es 0, el estado debe ser 'Nuevo'.")
+
+        # Nueva restricción: la planta nunca puede ser mayor que el número de plantas del edificio - 1
+        if isinstance(planta, int) and isinstance(plantas_edificio, int):
+            if planta > plantas_edificio:
+                self.add_error('planta', "La planta no puede ser mayor que el número de plantas del edificio.")
+
+        # 6. Si tiene ascensor, el edificio debe tener más de 2 plantas
+        ascensor = cleaned_data.get('ascensor')
+        if ascensor and isinstance(plantas_edificio, int) and plantas_edificio <= 2:
+            self.add_error('ascensor', "Solo tiene sentido ascensor si el edificio tiene más de 2 plantas.")
+
+        # 7. Si es última planta, la planta debe ser igual al número de plantas del edificio menos 1
+        if isinstance(ultima_planta, bool) and ultima_planta and isinstance(planta, int) and isinstance(plantas_edificio, int):
+            if planta != plantas_edificio:
+                self.add_error('ultima_planta', "La última planta debe coincidir con el número máximo de plantas del edificio.")
+
+        # 8. Si planta == plantas_edicio_catastro y no es última planta, error
+        if (
+            isinstance(planta, int)
+            and isinstance(plantas_edificio, int)
+            and planta == plantas_edificio
+            and ultima_planta is False
+        ):
+            self.add_error('ultima_planta', "Si la planta coincide con el número de plantas del edificio, debe marcar que es última planta.")
+            
         # Validación de al menos una orientación seleccionada
         orientaciones = [
             cleaned_data.get('orientacion_norte', False),
