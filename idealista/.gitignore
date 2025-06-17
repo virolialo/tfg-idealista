@@ -1,0 +1,30 @@
+# Bytecode de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+env/
+venv/
+.venv/
+
+# Archivos de entorno / claves
+.env
+*.env
+
+# Base de datos local
+db.sqlite3
+
+# Migraciones de Django
+*/migrations/
+*/migrations/*
+!/migrations/__init__.py
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos del IDE
+.vscode/
+.idea/
+*.swp

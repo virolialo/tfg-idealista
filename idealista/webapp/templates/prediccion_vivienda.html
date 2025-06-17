@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Predicción vivienda</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            background: #f4f6fa;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px 32px 24px 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #2a3d66;
+            margin-bottom: 24px;
+        }
+        form {
+            margin-bottom: 0;
+        }
+        #map {
+            height: 350px;
+            width: 100%;
+            margin: 20px 0 24px 0;
+            border-radius: 8px;
+            border: 1px solid #d0d6e2;
+        }
+        button[type="submit"] {
+            background: #2a3d66;
+            color: #fff;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #1a2640;
+        }
+        .prediccion-box {
+            background: #eaf6e9;
+            color: #1a5d1a;
+            border: 1.5px solid #b6e2b6;
+            border-radius: 8px;
+            padding: 18px;
+            margin: 28px 0 0 0;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        .errorlist {
+            color: #b30000;
+            margin-bottom: 12px;
+            list-style: none;
+            padding: 0;
+        }
+        label {
+            font-weight: 500;
+            color: #2a3d66;
+        }
+        input[type="checkbox"] {
+            margin-right: 6px;
+        }
+        .star-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.10);
+            padding: 10px 18px 10px 18px;
+            margin-bottom: 24px;
+            margin-top: 10px;
+            border: 1px solid #e0e6f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;           /* <-- Cambia esto */
+            margin-left: 0;        /* <-- Cambia esto */
+            margin-right: 0;       /* <-- Cambia esto */
+            box-sizing: border-box;
+        }
+        .star-rating {
+            direction: rtl;
+            display: flex;
+            justify-content: center;
+            font-size: 2em;
+            margin: 0;
+            gap: 0.1em;
+        }
+        .star-rating input[type="radio"] {
+            display: none;
+        }
+        .star-rating label {
+            color: #ccc;
+            cursor: pointer;
+            transition: color 0.2s;
+            font-size: 1em;
+            position: relative;
+        }
+        .star-rating input[type="radio"]:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #FFD700;
+        }
+        .star-tooltip {
+            display: none;
+            position: fixed;
+            background: #2a3d66;
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 1em;
+            pointer-events: none;
+            z-index: 1000;
+            white-space: nowrap;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.15);
+        }
+        .card-same-width {
+            min-width: 220px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .orientacion-popup {
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            transform: translateX(-50%);
+            margin-top: 8px;
+            background: #fff6e6;
+            color: #b36b00;
+            border: 1.5px solid #ffd699;
+            border-radius: 8px;
+            padding: 7px 18px;
+            font-size: 0.93em;
+            box-shadow: 0 2px 10px rgba(42,61,102,0.10);
+            z-index: 1050; /* Aumenta el z-index para estar por encima del mapa */
+            min-width: 210px;
+            text-align: center;
+            font-weight: 500;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 1s;
+        }
+        .orientacion-popup-arrow {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #fff6e6;
+            z-index: 1060; /* También más alto */
+        }
+        .orientacion-popup.fade-out {
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .orientacion-popup {
+            animation: fadeInOrientacion 0.3s;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 6px solid #e0e6f0;
+            border-top: 6px solid #2a3d66;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .circle-orientacion {
+            border-radius: 50%;
+            background: #e7eaf6;
+            border: 2.5px solid #d0d6e2;
+            width: 54px;
+            height: 54px;
+            font-weight: 500;
+            color: #2a3d66;
+            font-size: 0.97em;
+            cursor: pointer;
+            transition: border 0.2s, background 0.2s, color 0.2s;
+            box-shadow: 0 1px 4px rgba(42,61,102,0.07);
+            margin: 0;
+            user-select: none;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .circle-orientacion-selected {
+            border: 2.5px solid #2a3d66;
+            background: #d6f5e3;
+            color: #1a5d1a;
+            box-shadow: 0 2px 8px rgba(42,61,102,0.13);
+        }
+        .circle-orientacion:active {
+            filter: brightness(0.96);
+        }
+        .rect-orientacion {
+            border-radius: 16px;
+            background: #e7eaf6;
+            border: 2px solid #d0d6e2;
+            padding: 5px 14px; /* reducido */
+            font-weight: 600; /* más negrita */
+            color: #2a3d66;
+            font-size: 0.95em; /* más pequeño */
+            cursor: pointer;
+            transition: border 0.2s, background 0.2s, color 0.2s;
+            box-shadow: 0 1px 4px rgba(42,61,102,0.07);
+            margin: 0;
+            user-select: none;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px; /* más pequeño */
+            text-align: center;
+            letter-spacing: 0.5px;
+            /* Palabra más visible */
+        }
+        .rect-orientacion-selected {
+            background: #d0d6e2;
+            border: 2.5px solid #2a3d66;
+            color: #1a2640;
+            font-weight: 700; /* aún más negrita al seleccionar */
+            box-shadow: 0 2px 8px rgba(42,61,102,0.13);
+        }
+        .rect-orientacion:active {
+            filter: brightness(0.96);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        @media (max-width: 700px) {
+            .container { padding: 12px; }
+        }
+        @keyframes fadeInOrientacion {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px);}
+            to { opacity: 1; transform: translateX(-50%) translateY(0);}
+        }
+        .card-same-height,
+        #coordenadas-card,
+        #calidad-catastro-card {
+            min-height: 60px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        #coords-fields {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #coords-fields #lat-value,
+        #coords-fields #lon-value {
+            font-size: 0.92em !important;
+            color: #2a3d66;
+            margin-top: 2px;
+            opacity: 0.92;
+            font-weight: 500;
+            text-align: center;
+            width: 100%;
+            display: block;
+            letter-spacing: 0.2px;
+        }
+        .custom-select-estado {
+            width: 90%;
+            min-width: 120px;
+            max-width: 220px;
+            padding: 9px 20px;
+            border-radius: 16px;
+            background: #e7eaf6;
+            border: 2px solid #d0d6e2;
+            color: #2a3d66;
+            font-size: 0.85em;      /* igual que los botones */
+            font-weight: 600;        /* igual que los botones */
+            box-shadow: 0 1px 4px rgba(42,61,102,0.07);
+            outline: none;
+            transition: border 0.2s, background 0.2s, color 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            text-align: left;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            background-image:
+                linear-gradient(45deg, transparent 49%, #2a3d66 51%),
+                linear-gradient(135deg, #2a3d66 51%, transparent 49%);
+            background-position:
+                calc(100% - 24px) calc(50% - 3px),
+                calc(100% - 18px) calc(50% - 3px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+        }
+        .custom-select-estado:focus {
+            border: 2.5px solid #2a3d66;
+            background: #d0d6e2;
+            color: #1a2640;
+        }
+        .custom-select-estado option {
+            color: #2a3d66;
+            background: #fff;
+            font-weight: 500;
+            font-size: 0.85em !important;
+        }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>Registrar vivienda</h1>
+        <form method="post">
+            {% csrf_token %}
+            
+            <!-- Datos básicos vivienda -->
+            <label style="display:block;text-align:center;margin-bottom:6px;">Datos básicos</label>
+            <div class="star-card" style="flex-direction: column; align-items: stretch; width: 100%; box-sizing: border-box;">
+                <div style="display: flex; gap: 24px; margin-bottom: 12px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0; position: relative;">
+                        {{ form.metros_construidos.label_tag }} {{ form.metros_construidos }}
+                        {% if form.metros_construidos.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.metros_construidos.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </label>
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0; position: relative;">
+                        {{ form.num_hab.label_tag }} {{ form.num_hab }}
+                        {% if form.num_hab.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.num_hab.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </label>
+                </div>
+                <div style="display: flex; gap: 24px; margin-bottom: 12px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0; position: relative;">
+                        {{ form.num_wc.label_tag }} {{ form.num_wc }}
+                        {% if form.num_wc.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.num_wc.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </label>
+                    <div style="flex:1; display: flex; flex-direction: row; align-items: center; gap: 12px; margin: 0;">
+                        <div style="display: flex; flex-direction: column; flex: 1; position: relative;">
+                            {{ form.planta.label_tag }} {{ form.planta }}
+                            {% if form.planta.errors %}
+                                <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                    {{ form.planta.errors.0 }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; font-weight: 500; color: #2a3d66; position: relative;">
+                            ¿Última planta?
+                            {{ form.ultima_planta }}
+                            {% if form.ultima_planta.errors %}
+                                <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                    {{ form.ultima_planta.errors.0 }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 24px; width: 100%;">
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0; position: relative;">
+                        {{ form.plantas_edicio_catastro.label_tag }} {{ form.plantas_edicio_catastro }}
+                        {% if form.plantas_edicio_catastro.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.plantas_edicio_catastro.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </label>
+                    <label style="flex:1; display: flex; flex-direction: column; gap: 4px; margin: 0; position: relative;">
+                        {{ form.antiguedad.label_tag }} {{ form.antiguedad }}
+                        {% if form.antiguedad.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.antiguedad.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </label>
+                </div>
+            </div>
+
+            <!-- Comodidades -->
+            <label style="display:block;text-align:center;margin-bottom:6px;">Comodidades vivienda</label>
+            <div class="star-card">
+                <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: center; width: 100%;">
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.terraza.value %} rect-orientacion-selected{% endif %}" data-input-id="id_terraza">Terraza</button>
+                        {{ form.terraza.as_hidden }}
+                        {% if form.terraza.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.terraza.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.ascensor.value %} rect-orientacion-selected{% endif %}" data-input-id="id_ascensor">Ascensor</button>
+                        {{ form.ascensor.as_hidden }}
+                        {% if form.ascensor.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.ascensor.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.aire_acondicionado.value %} rect-orientacion-selected{% endif %}" data-input-id="id_aire_acondicionado">Aire acondicionado</button>
+                        {{ form.aire_acondicionado.as_hidden }}
+                        {% if form.aire_acondicionado.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.aire_acondicionado.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.parking.value %} rect-orientacion-selected{% endif %}" data-input-id="id_parking">Parking</button>
+                        {{ form.parking.as_hidden }}
+                        {% if form.parking.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.parking.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.trastero.value %} rect-orientacion-selected{% endif %}" data-input-id="id_trastero">Trastero</button>
+                        {{ form.trastero.as_hidden }}
+                        {% if form.trastero.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.trastero.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.armario_empotrado.value %} rect-orientacion-selected{% endif %}" data-input-id="id_armario_empotrado">Armario empotrado</button>
+                        {{ form.armario_empotrado.as_hidden }}
+                        {% if form.armario_empotrado.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.armario_empotrado.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.duplex.value %} rect-orientacion-selected{% endif %}" data-input-id="id_duplex">Dúplex</button>
+                        {{ form.duplex.as_hidden }}
+                        {% if form.duplex.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.duplex.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="rect-orientacion{% if form.estudio.value %} rect-orientacion-selected{% endif %}" data-input-id="id_estudio">Estudio</button>
+                        {{ form.estudio.as_hidden }}
+                        {% if form.estudio.errors %}
+                            <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                {{ form.estudio.errors.0 }}
+                                <span class="orientacion-popup-arrow"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orientaciones y Estado -->
+            <div style="display: flex; justify-content: flex-start; align-items: flex-start; gap: 24px; margin-bottom: 24px;">
+                <div style="flex: 1.3; position: relative; min-width: 0;">
+                    <label style="display:block;text-align:center;margin-bottom:6px; width: 100%;">Orientaciones</label>
+                    <div class="star-card card-same-height" id="orientacion-card" style="margin: 0;">
+                        <div style="display: flex; gap: 18px; align-items: center;">
+                            <div style="position: relative; display: inline-block;">
+                                <button type="button" class="rect-orientacion{% if form.orientacion_norte.value %} rect-orientacion-selected{% endif %}" data-input-id="id_orientacion_norte">Norte</button>
+                                {{ form.orientacion_norte.as_hidden }}
+                                {% if form.orientacion_norte.errors %}
+                                    <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                        {{ form.orientacion_norte.errors.0 }}
+                                        <span class="orientacion-popup-arrow"></span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div style="position: relative; display: inline-block;">
+                                <button type="button" class="rect-orientacion{% if form.orientacion_sur.value %} rect-orientacion-selected{% endif %}" data-input-id="id_orientacion_sur">Sur</button>
+                                {{ form.orientacion_sur.as_hidden }}
+                                {% if form.orientacion_sur.errors %}
+                                    <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                        {{ form.orientacion_sur.errors.0 }}
+                                        <span class="orientacion-popup-arrow"></span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div style="position: relative; display: inline-block;">
+                                <button type="button" class="rect-orientacion{% if form.orientacion_este.value %} rect-orientacion-selected{% endif %}" data-input-id="id_orientacion_este">Este</button>
+                                {{ form.orientacion_este.as_hidden }}
+                                {% if form.orientacion_este.errors %}
+                                    <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                        {{ form.orientacion_este.errors.0 }}
+                                        <span class="orientacion-popup-arrow"></span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div style="position: relative; display: inline-block;">
+                                <button type="button" class="rect-orientacion{% if form.orientacion_oeste.value %} rect-orientacion-selected{% endif %}" data-input-id="id_orientacion_oeste">Oeste</button>
+                                {{ form.orientacion_oeste.as_hidden }}
+                                {% if form.orientacion_oeste.errors %}
+                                    <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                        {{ form.orientacion_oeste.errors.0 }}
+                                        <span class="orientacion-popup-arrow"></span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "orientación" in error %}
+                                <div class="orientacion-popup" id="orientacion-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div style="flex: 0.7; min-width: 0; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px; width: 100%;">Estado</label>
+                    <div class="star-card card-same-height" id="estado-card" style="margin: 0; display: flex; align-items: center; justify-content: center;">
+                        <div style="position: relative; width: 100%;">
+                            <select id="id_estado" name="estado" class="custom-select-estado">
+                                {% for value, label in form.estado.field.choices %}
+                                    {% if label == "Nueva construcción" %}
+                                        <option value="{{ value }}" {% if form.estado.value == value %}selected{% endif %}>Nuevo</option>
+                                    {% elif label == "Segunda mano - Restaurar" %}
+                                        <option value="{{ value }}" {% if form.estado.value == value %}selected{% endif %}>A restaurar</option>
+                                    {% elif label == "Segunda mano - Bueno" %}
+                                        <option value="{{ value }}" {% if form.estado.value == value %}selected{% endif %}>Bueno</option>
+                                    {% else %}
+                                        <option value="{{ value }}" {% if form.estado.value == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            {% if form.estado.errors %}
+                                <div class="orientacion-popup" style="position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:8px;z-index:1100;">
+                                    {{ form.estado.errors.0 }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-start; align-items: flex-start; gap: 24px; margin-bottom: 24px;">
+                <!-- Calidad catastro -->
+                <div style="flex: 1; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px;">Calidad catastro</label>
+                    <div class="star-card card-same-width card-same-height" id="calidad-catastro-card" style="margin: 0;">
+                        <div class="star-rating" id="star-rating"></div>
+                    </div>
+                    <div id="star-tooltip" class="star-tooltip"></div>
+                    {{ form.calidad_catastro.as_hidden }}
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "calidad" in error %}
+                                <div class="orientacion-popup" id="calidad-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <!-- Coordenadas -->
+                <div style="flex: 1; position: relative;">
+                    <label style="display:block;text-align:center;margin-bottom:6px;">Coordenadas</label>
+                    <div class="star-card card-same-width card-same-height" id="coordenadas-card" style="margin: 0; flex-direction: column; align-items: stretch;">
+                        <div id="coords-placeholder" style="color:#888; text-align:center; font-size:1em; padding:8px 0; display:none;">
+                            Seleccione ubicación
+                        </div>
+                        <div id="coords-fields">
+                            <span id="lat-value">LAT - </span>
+                            <span id="lon-value">LON - </span>
+                            {{ form.latitud }}
+                            {{ form.longitud }}
+                        </div>
+                    </div>
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                            {% if "ubicación" in error or "coordenada" in error or "no pertenece a ningún barrio registrado" in error %}
+                                <div class="orientacion-popup" id="coordenadas-popup-error">
+                                    {{ error }}
+                                    <span class="orientacion-popup-arrow"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+</div>
+
+            <div id="map"></div>
+            <button type="submit">Predecir</button>
+        </form>
+        {% if precio_predicho %}
+            <div class="prediccion-box">
+                Precio predicho: {{ precio_predicho|floatformat:0 }} €
+            </div>
+        {% endif %}
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <span id="error-coords-flag" data-error-coords="{% for error in form.non_field_errors %}{% if "ubicación" in error or "coordenada" in error or "no pertenece a ningún barrio registrado" in error %}true{% endif %}{% endfor %}"></span>
+    <div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(44,54,80,0.35); z-index:2000; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:18px; padding:36px 48px; box-shadow:0 4px 32px rgba(42,61,102,0.18); display:flex; flex-direction:column; align-items:center;">
+            <div class="spinner" style="margin-bottom:18px;"></div>
+            <span style="font-size:1.2em; color:#2a3d66; font-weight:500;">Calculando el precio final, por favor espere...</span>
+        </div>
+    </div>
+<script>
+    // Leaflet map
+    var map = L.map('map').setView([39.4699, -0.3763], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var marker;
+
+    // Selecciona los inputs de latitud y longitud
+    const latInput = document.getElementById('id_latitud');
+    const lonInput = document.getElementById('id_longitud');
+    const latValue = document.getElementById('lat-value');
+    const lonValue = document.getElementById('lon-value');
+    const coordsPlaceholder = document.getElementById('coords-placeholder');
+    const coordsFields = document.getElementById('coords-fields');
+
+    function updateLatLonDisplay() {
+        const lat = latInput.value;
+        const lon = lonInput.value;
+        const hasCoords = lat && lon;
+        if (coordsPlaceholder && coordsFields) {
+            coordsPlaceholder.style.display = hasCoords ? 'none' : 'block';
+            coordsFields.style.display = hasCoords ? 'flex' : 'none';
+        }
+        if (latValue && lonValue) {
+            latValue.textContent = `LAT (${lat || ''})`;
+            lonValue.textContent = `LON (${lon || ''})`;
+        }
+    }    
+
+    // Inicializa los valores si ya existen
+    updateLatLonDisplay();
+
+    map.on('click', function(e) {
+        var lat = e.latlng.lat;
+        var lng = e.latlng.lng;
+        if (latInput && lonInput) {
+            latInput.value = lat.toFixed(6);
+            lonInput.value = lng.toFixed(6);
+            updateLatLonDisplay();
+        }
+        if (marker) {
+            marker.setLatLng(e.latlng);
+        } else {
+            marker = L.marker(e.latlng).addTo(map);
+        }
+    });
+
+    // Si el usuario edita manualmente los campos, actualiza también la vista
+    if (latInput) latInput.addEventListener('input', updateLatLonDisplay);
+    if (lonInput) lonInput.addEventListener('input', updateLatLonDisplay);
+
+    // Estrellas calidad_catastro con tooltip personalizado
+    const calidadInput = document.getElementById('id_calidad_catastro');
+    const starContainer = document.getElementById('star-rating');
+    const tooltip = document.getElementById('star-tooltip');
+    function getTooltipText(i) {
+        if (i <= 2) return "Muy malo";
+        if (i <= 4) return "Malo";
+        if (i <= 6) return "Normal";
+        if (i <= 8) return "Bueno";
+        return "Muy bueno";
+    }
+    if (calidadInput && starContainer) {
+        starContainer.innerHTML = '';
+        for (let i = 10; i >= 1; i--) {
+            let radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.id = 'star' + i;
+            radio.name = 'star';
+            radio.value = i;
+            if (parseInt(calidadInput.value) === i) radio.checked = true;
+            radio.onclick = function() {
+                calidadInput.value = i;
+            };
+            let label = document.createElement('label');
+            label.htmlFor = 'star' + i;
+            label.title = i + ' estrellas';
+            label.innerHTML = '&#9733;';
+            // Tooltip personalizado
+            label.addEventListener('mouseenter', function(e) {
+                tooltip.textContent = getTooltipText(i);
+                tooltip.style.display = 'block';
+            });
+            label.addEventListener('mousemove', function(e) {
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY - 10) + 'px';
+            });
+            label.addEventListener('mouseleave', function() {
+                tooltip.style.display = 'none';
+            });
+            starContainer.appendChild(radio);
+            starContainer.appendChild(label);
+        }
+    }
+
+    // Función para desvanecer todos los popups de error tras unos segundos
+    function fadeOutPopups() {
+        document.querySelectorAll('.orientacion-popup').forEach(function(popup) {
+            setTimeout(function() {
+                popup.classList.add('fade-out');
+            }, 3000); // Empieza a desvanecer tras 3s
+            setTimeout(function() {
+                if (popup.parentNode) popup.parentNode.removeChild(popup);
+            }, 4000); // Elimina tras 4s
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Orientación
+        const popupOrientacion = document.getElementById('orientacion-popup-error');
+        if (popupOrientacion) {
+            setTimeout(() => {
+                popupOrientacion.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupOrientacion.parentNode) popupOrientacion.parentNode.removeChild(popupOrientacion);
+            }, 4000);
+        }
+        // Calidad catastro
+        const popupCalidad = document.getElementById('calidad-popup-error');
+        if (popupCalidad) {
+            setTimeout(() => {
+                popupCalidad.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupCalidad.parentNode) popupCalidad.parentNode.removeChild(popupCalidad);
+            }, 4000);
+        }
+        // Coordenadas
+        const popupCoords = document.getElementById('coordenadas-popup-error');
+        if (popupCoords) {
+            setTimeout(() => {
+                popupCoords.classList.add('fade-out');
+            }, 3000);
+            setTimeout(() => {
+                if (popupCoords.parentNode) popupCoords.parentNode.removeChild(popupCoords);
+            }, 4000);
+        }
+
+        // Desvanece todos los popups de error automáticamente
+        fadeOutPopups();
+
+        const latInput = document.getElementById('id_latitud');
+        const lonInput = document.getElementById('id_longitud');
+        const lat = latInput ? latInput.value : '';
+        const lon = lonInput ? lonInput.value : '';
+
+        // Lee el flag de error de coordenadas desde el atributo data-
+        const errorCoordsFlag = document.getElementById('error-coords-flag');
+        const errorCoordenadas = errorCoordsFlag && errorCoordsFlag.getAttribute('data-error-coords') === 'true';
+
+        if (lat && lon && !errorCoordenadas) {
+            // Si hay coordenadas y NO hay error de coordenadas, muestra el marcador
+            if (typeof L !== 'undefined') {
+                if (window.marker) {
+                    window.marker.setLatLng([parseFloat(lat), parseFloat(lon)]);
+                } else {
+                    window.marker = L.marker([parseFloat(lat), parseFloat(lon)]).addTo(map);
+                }
+                map.setView([parseFloat(lat), parseFloat(lon)], map.getZoom());
+            }
+        } else {
+            // Si hay error de coordenadas, elimina el marcador y limpia los campos
+            if (window.marker) {
+                map.removeLayer(window.marker);
+                window.marker = null;
+            }
+            if (latInput) latInput.value = '';
+            if (lonInput) lonInput.value = '';
+            if (typeof updateLatLonDisplay === 'function') updateLatLonDisplay();
+        }
+    });
+
+    // Mostrar overlay de carga al hacer submit si TODO el formulario es válido (HTML5)
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (!this.checkValidity()) {
+            return;
+        }
+        document.getElementById('loading-overlay').style.display = 'flex';
+    });
+
+    // Vaciar el formulario si la página se recarga manualmente o por F5
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || performance.getEntriesByType("navigation")[0].type === "reload") {
+            document.querySelector('form').reset();
+            // Si tienes campos personalizados, también puedes limpiar aquí:
+            updateLatLonDisplay();
+            // Si usas estrellas, puedes limpiar el input oculto:
+            const calidadInput = document.getElementById('id_calidad_catastro');
+            if (calidadInput) calidadInput.value = '';
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.rect-orientacion').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const inputId = btn.getAttribute('data-input-id');
+                const input = document.getElementById(inputId);
+                if (input) {
+                    // Alternar valor entre 'True' y 'False'
+                    if (input.value === "True" || input.value === "true" || input.checked) {
+                        input.value = "False";
+                        input.checked = false;
+                        btn.classList.remove('rect-orientacion-selected');
+                    } else {
+                        input.value = "True";
+                        input.checked = true;
+                        btn.classList.add('rect-orientacion-selected');
+                    }
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
